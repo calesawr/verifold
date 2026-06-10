@@ -1,12 +1,12 @@
 # Verifold: a proof-verification layer for Stacks
 
-### Litepaper (plain edition) · draft v0.1 · 2026-06-09 · for community feedback
+### Litepaper · draft v0.1 · 2026-06-09 · for feedback
 
 > **Working title "Verifold"** (*verify* plus the *folding* step at the heart of the proof check). Name not finalized.
 > **Neutral, open-source infrastructure. No token.**
 >
-> **Status (read first).** Three things are true today. First, a complete proof is checked end to end
-> by a Clarity contract on a simulated network, and a proof produced by a separate, independently
+> Three things are true today. First, a complete proof is checked end to end
+> by a Clarity contract on Simnet, and a proof produced by a separate, independently
 > written prover is accepted by that contract. Second, the verifier was checked value by value against
 > the reference proving software it is meant to match, rather than assumed to match it. Third, this all
 > runs at demonstration strength: a small proof verifies at about one percent of a single block's
