@@ -1,0 +1,16 @@
+# Verifold CI: the test suite is the project's spec oracle, so it must pass on every change.
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci          # fails on any package.json <-> lockfile drift
+      - run: npm test        # the full differential / property / KAT suite

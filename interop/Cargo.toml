@@ -1,0 +1,12 @@
+[package]
+name = "verifold-interop"
+version = "0.1.0"
+edition = "2021"
+
+# Stwo pinned to the EXACT commit the gear-6e design panel extracted (dev @ cca98119).
+# The `prover` feature enables the CPU backend (interpolation / twiddles).
+[dependencies]
+stwo = { git = "https://github.com/starkware-libs/stwo", rev = "cca98119f4641c3e096de74b915c1aa55453bcad", features = ["prover"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"

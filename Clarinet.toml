@@ -1,0 +1,94 @@
+[project]
+name = "verifold"
+description = ""
+authors = []
+telemetry = true
+cache_dir = "./.cache"
+
+# [contracts.counter]
+# path = "contracts/counter.clar"
+# epoch = "latest"
+
+# Check-checker settings:
+# trusted_sender: if true, inputs are trusted after tx_sender has been checked.
+# trusted_caller: if true, inputs are trusted after contract-caller has been checked.
+# callee_filter: if true, untrusted data may be passed into a private function without a
+# warning, if it gets checked inside. This check will also propagate up to the
+# caller.
+# More informations: https://www.hiro.so/blog/new-safety-checks-in-clarinet
+
+[repl.analysis]
+passes = ["check_checker"]
+check_checker = { trusted_sender = false, trusted_caller = false, callee_filter = false }
+
+[contracts]
+
+[contracts.field]
+path = "contracts/field.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.merkle]
+path = "contracts/merkle.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.transcript]
+path = "contracts/transcript.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.qm31]
+path = "contracts/qm31.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.fri]
+path = "contracts/fri.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.air]
+path = "contracts/air.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.deep]
+path = "contracts/deep.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.commit]
+path = "contracts/commit.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.schedule]
+path = "contracts/schedule.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.query]
+path = "contracts/query.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.driver]
+path = "contracts/driver.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.cair]
+path = "contracts/cair.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.cdeep]
+path = "contracts/cdeep.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.fullsize]
+path = "contracts/fullsize.clar"
+clarity_version = 3
+epoch = "3.1"
