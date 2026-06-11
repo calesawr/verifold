@@ -164,6 +164,12 @@ to 10% of one block** and reduces the internal-call count to almost nothing, com
 transaction with a wide safety margin. Building that combined contract, and proving it behaves
 identically to the tested pieces, is the next engineering milestone.
 
+The combined contract is the main cost lever, but not the only one. The upcoming Clarity 6 upgrade adds
+language features that make exactly the kind of "assemble bytes, then hash" work a proof checker does most
+a little cheaper, and we are asking the Stacks core developers to add one small built-in we currently have
+to work around. These are extra headroom on top of the combined contract, not a replacement for it; the
+savings are not yet measured, so the cost figures above stand on their own under today's rules.
+
 ---
 
 ## 8. Security and trust
@@ -232,9 +238,11 @@ rules.
 ## 11. Governance, licensing, neutrality
 
 Verifold is intended as a public good: permissively open-source, neutral, not tied to any single
-application, with no token. It requires no change to Stacks itself to ship. A future shared standard for
-verifier interfaces could make verifiers interchangeable across the ecosystem, a later, community-led
-step rather than a precondition.
+application, with no token. It requires no change to Stacks itself to ship. There is precedent for this on
+Stacks: a shared library for checking Bitcoin transactions on-chain (`clarity-bitcoin-lib`) is already used
+by several projects, so a reusable proof-checking primitive in plain Clarity is a pattern the ecosystem
+already welcomes. A future shared standard for verifier interfaces could make verifiers interchangeable
+across the ecosystem, a later, community-led step rather than a precondition.
 
 ---
 

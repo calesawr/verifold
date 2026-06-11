@@ -173,6 +173,14 @@ within one transaction. A measurement spike to confirm this directly is in progr
 honest statement is that the demonstration verifies at one percent of a block and the production-parameter
 artifact does not yet exist.
 
+The flattening is the primary lever, but not the only one. The upcoming Clarity 6 adds language-level
+features that reduce the cost of exactly the byte-assembly-and-hash work a STARK verifier does most, such as
+a variadic `concat` that collapses the nested binary concatenations in the leaf encoder and the Fiat-Shamir
+transcript. We are also engaging upstream on a native integer-to-bytes serialization to replace a
+`to-consensus-buff?` workaround on the verifier's hot path. These are additional headroom on top of the
+flattening, not a substitute for it; the savings are not yet measured and the cost figures in this document
+remain point-in-time under the current cost model.
+
 If the spike shows a parameter set too large for one transaction, the established fallback is to split the
 verification across several transactions, a pattern used by STARK verifiers on other chains. The design does
 not depend on the optimistic case.
@@ -256,9 +264,12 @@ community wants a trait-level standard so verifiers are interoperable.
 ## 11. Governance, licensing, neutrality
 
 Verifold is intended as a public good: permissively open-source (Apache-2.0 / MIT), neutral and unopinionated
-(not tied to any single application), with no token. It requires no consensus change to ship. A future
-trait-level standard (an "SRC"-style interface) could make verifiers interoperable across the ecosystem, a
-later, community-led step, not a precondition.
+(not tied to any single application), with no token. It requires no consensus change to ship. There is
+precedent for this model on Stacks: `clarity-bitcoin-lib`, a shared on-chain proof-verification library for
+Bitcoin transactions, is already relied on by multiple projects, so a reusable verification primitive in pure
+Clarity is a pattern the ecosystem already welcomes and uses. A future trait-level standard (an "SRC"-style
+interface) could make verifiers interoperable across the ecosystem, a later, community-led step, not a
+precondition.
 
 ---
 
