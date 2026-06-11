@@ -176,8 +176,9 @@ artifact does not yet exist.
 The flattening is the primary lever, but not the only one. Language changes under discussion for the next
 Clarity release would reduce the cost of exactly the byte-assembly-and-hash work a STARK verifier does most:
 a long-requested variadic `concat` would collapse the nested binary concatenations in the leaf encoder and
-the Fiat-Shamir transcript, and we have drafted an upstream request for a native integer-to-bytes
-serialization to replace a `to-consensus-buff?` workaround on the verifier's hot path. Neither is committed
+the Fiat-Shamir transcript, and we have filed an upstream request
+([stacks-core #7312](https://github.com/stacks-network/stacks-core/issues/7312)) for a native
+integer-to-bytes serialization to replace a `to-consensus-buff?` workaround on the verifier's hot path. Neither is committed
 to a release yet. These are additional headroom on top of the flattening, not a substitute for it; the
 savings are not yet measured and the cost figures in this document remain point-in-time under the current
 cost model.
