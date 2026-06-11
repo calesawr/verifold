@@ -164,11 +164,12 @@ to 10% of one block** and reduces the internal-call count to almost nothing, com
 transaction with a wide safety margin. Building that combined contract, and proving it behaves
 identically to the tested pieces, is the next engineering milestone.
 
-The combined contract is the main cost lever, but not the only one. The upcoming Clarity 6 upgrade adds
-language features that make exactly the kind of "assemble bytes, then hash" work a proof checker does most
-a little cheaper, and we are asking the Stacks core developers to add one small built-in we currently have
-to work around. These are extra headroom on top of the combined contract, not a replacement for it; the
-savings are not yet measured, so the cost figures above stand on their own under today's rules.
+The combined contract is the main cost lever, but not the only one. Language changes under discussion for
+the next Clarity upgrade would make exactly the kind of "assemble bytes, then hash" work a proof checker
+does most a little cheaper, and we are asking the Stacks core developers to add one small built-in we
+currently have to work around. None of that is committed to a release yet. These are extra headroom on top
+of the combined contract, not a replacement for it; the savings are not measured, so the cost figures above
+stand on their own under today's rules.
 
 ---
 

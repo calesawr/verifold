@@ -173,13 +173,14 @@ within one transaction. A measurement spike to confirm this directly is in progr
 honest statement is that the demonstration verifies at one percent of a block and the production-parameter
 artifact does not yet exist.
 
-The flattening is the primary lever, but not the only one. The upcoming Clarity 6 adds language-level
-features that reduce the cost of exactly the byte-assembly-and-hash work a STARK verifier does most, such as
-a variadic `concat` that collapses the nested binary concatenations in the leaf encoder and the Fiat-Shamir
-transcript. We are also engaging upstream on a native integer-to-bytes serialization to replace a
-`to-consensus-buff?` workaround on the verifier's hot path. These are additional headroom on top of the
-flattening, not a substitute for it; the savings are not yet measured and the cost figures in this document
-remain point-in-time under the current cost model.
+The flattening is the primary lever, but not the only one. Language changes under discussion for the next
+Clarity release would reduce the cost of exactly the byte-assembly-and-hash work a STARK verifier does most:
+a long-requested variadic `concat` would collapse the nested binary concatenations in the leaf encoder and
+the Fiat-Shamir transcript, and we have drafted an upstream request for a native integer-to-bytes
+serialization to replace a `to-consensus-buff?` workaround on the verifier's hot path. Neither is committed
+to a release yet. These are additional headroom on top of the flattening, not a substitute for it; the
+savings are not yet measured and the cost figures in this document remain point-in-time under the current
+cost model.
 
 If the spike shows a parameter set too large for one transaction, the established fallback is to split the
 verification across several transactions, a pattern used by STARK verifiers on other chains. The design does
