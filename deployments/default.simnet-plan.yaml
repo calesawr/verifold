@@ -75,11 +75,6 @@ plan:
       path: contracts/qm31.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
-      contract-name: air
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/air.clar
-      clarity-version: 3
-    - transaction-type: emulated-contract-publish
       contract-name: cair
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/cair.clar
@@ -105,11 +100,6 @@ plan:
       path: contracts/fri.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
-      contract-name: deep
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/deep.clar
-      clarity-version: 3
-    - transaction-type: emulated-contract-publish
       contract-name: query
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/query.clar
@@ -128,10 +118,5 @@ plan:
       contract-name: driver
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/driver.clar
-      clarity-version: 3
-    - transaction-type: emulated-contract-publish
-      contract-name: fullsize
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/fullsize.clar
       clarity-version: 3
     epoch: '3.1'

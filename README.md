@@ -27,10 +27,9 @@ that every node re-executes.
 | Path | Contents |
 |---|---|
 | `contracts/` | The verifier, as independently tested Clarity contracts: M31/QM31 field arithmetic, sha256 Merkle verification, the Fiat-Shamir transcript and challenge schedule, the FRI fold, the circle AIR and DEEP quotients, the query-to-domain map, and the top-level `driver.verify()` |
-| `tests/` | 270+ automated tests: differential tests against independent TypeScript reference implementations, Python-verified known-answer vectors, oracle-independent structural properties, and a large adversarial negative matrix (every lie class must abort) |
+| `tests/` | 240+ automated tests: differential tests against independent TypeScript reference implementations, Python-verified known-answer vectors, oracle-independent structural properties, and a large adversarial negative matrix (every lie class must abort) |
 | `interop/` | A Rust harness pinned to a specific Stwo commit: a 16-check cross-validation that the verifier's conventions match Stwo's own functions value for value, plus a mini-prover whose proofs the Clarity contract accepts |
 | `tools/` | The from-scratch Python replay that pins the known-answer vectors, and the full-parameter cost-shape generator |
-| `contracts/fullsize.clar` | A generated cost-measurement artifact (not a verifier): the execution shape of a full-security verify in flattened single-contract form, measured at 4 to 10% of a block across realistic parameter sets |
 
 ## Running the tests
 

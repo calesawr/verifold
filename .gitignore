@@ -12,3 +12,10 @@ coverage
 costs-reports.json
 node_modules
 interop/target/
+
+# Local session handoff notes (never commit)
+handoff.md
+# Windows/WSL download artifacts
+*Zone.Identifier
+# Local-only archive of deprecated/cost contracts (kept out of the repo)
+local-archive/

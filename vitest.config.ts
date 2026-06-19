@@ -21,6 +21,8 @@ import {
 
 export default defineConfig({
   test: {
+    // canonical test location; keeps any local-only archives out of the run
+    include: ["tests/**/*.test.ts"],
     // use vitest-environment-clarinet
     environment: "clarinet",
     pool: "forks",

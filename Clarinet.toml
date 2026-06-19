@@ -48,16 +48,6 @@ path = "contracts/fri.clar"
 clarity_version = 3
 epoch = "3.1"
 
-[contracts.air]
-path = "contracts/air.clar"
-clarity_version = 3
-epoch = "3.1"
-
-[contracts.deep]
-path = "contracts/deep.clar"
-clarity_version = 3
-epoch = "3.1"
-
 [contracts.commit]
 path = "contracts/commit.clar"
 clarity_version = 3
@@ -85,10 +75,5 @@ epoch = "3.1"
 
 [contracts.cdeep]
 path = "contracts/cdeep.clar"
-clarity_version = 3
-epoch = "3.1"
-
-[contracts.fullsize]
-path = "contracts/fullsize.clar"
 clarity_version = 3
 epoch = "3.1"
