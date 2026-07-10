@@ -110,6 +110,25 @@ def test_tuple_keys_and_get_keys_never_renamed():
     assert "{ re: uint }" in text
 
 
+def test_merge_key_positions():
+    # synthetic: a top-level constant name (P) appears as a tuple key inside a
+    # merge call. Per the brief, tuple keys must never be renamed. The Tup branch
+    # in classify_gear walk should exclude P when it is a key in the tuple literals
+    # passed to merge (bare keys can only appear inside tuple literals, excluded
+    # by Tup); however, P as a value position should be renamed.
+    src = ("(define-constant P u7)\n"
+           "(define-read-only (f) (merge { P: u1 } { q: P }))\n")
+    g = flatten.Gear("field", src)
+    a = flatten.classify_gear(g)
+    text = flatten.apply_edits(g.src, a.edits)
+    # The constant definition itself is renamed
+    assert "(define-constant field/P u7)" in text
+    # The tuple key P (inside { P: u1 }) must stay bare
+    assert "{ P: u1 }" in text
+    # The value-position reference to P (inside { q: P }) must be renamed
+    assert "{ q: field/P }" in text
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -121,6 +140,7 @@ TESTS = [
     test_contract_call_elimination_qm31,
     test_nested_call_rewrite_driver,
     test_tuple_keys_and_get_keys_never_renamed,
+    test_merge_key_positions,
 ]
 
 if __name__ == "__main__":

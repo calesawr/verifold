@@ -408,6 +408,8 @@ def classify_gear(gear):
             a.tuple_keys.add(kids[1].text)  # the key argument of get: never renamed
             walk(kids[2], locals_, enclosing_params)
             return
+        # merge needs no special case: bare keys can only appear inside tuple literals
+        # { key: val }, which the Tup branch above already excludes from renaming.
         if head is not None and head.text == "let":
             inner = set(locals_)  # Clarity let is sequential
             for b in kids[1].children:
