@@ -356,6 +356,31 @@ def test_math_anchor_fires():
                  "math anchor: query.OFF")
 
 
+def test_covariance_green_and_nonvacuous():
+    _gears, by_name, sites = _all_gears()
+    checked, skipped = flatten.check_list_covariance(by_name, sites)
+    # four inferable sites: driver verify passes fri-roots (a declared
+    # (list 3 (buff 32)) param) into schedule derive-challenges (list 32);
+    # driver fold-one and pair-bound pass 1-element list literals into
+    # fri-fold-down / merkle-root (list 32); commit opening-bound passes its
+    # own declared (list 32 ...) path param into merkle-verify (list 32).
+    # The two (path-from-pos ...) results into merkle-verify are not
+    # inferable and defer to clarinet check.
+    assert checked == 4, checked
+    assert skipped == 2, skipped
+
+
+def test_covariance_fires_on_oversized_literal():
+    callee = flatten.Gear("field", "(define-read-only (f (xs (list 2 uint))) (len xs))")
+    caller = flatten.Gear("qm31",
+        "(define-read-only (g) (contract-call? .field f (list u1 u2 u3)))")
+    a = flatten.classify_gear(caller)
+    expect_error(
+        lambda: flatten.check_list_covariance(
+            {"field": callee, "qm31": caller}, a.call_sites),
+        "max-len 3 > declared 2")
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -395,6 +420,8 @@ TESTS = [
     test_tripwire_fires_on_sy_drift,
     test_math_anchor_green,
     test_math_anchor_fires,
+    test_covariance_green_and_nonvacuous,
+    test_covariance_fires_on_oversized_literal,
 ]
 
 if __name__ == "__main__":

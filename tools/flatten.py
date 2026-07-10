@@ -603,6 +603,52 @@ def check_math_anchor(by_name):
             raise FlattenError(f"math anchor: {label} pinned {got} != computed {want}")
 
 
+# ---------------- Stage 4 acceptance: list max-len covariance ----------------
+
+def list_maxlen(type_node):
+    """Top-level (list N T) max-len from a declared type node, else None."""
+    if (isinstance(type_node, Node) and type_node.children
+            and isinstance(type_node.children[0], Token)
+            and type_node.children[0].text == "list"):
+        return int(type_node.children[1].text)
+    return None
+
+
+def arg_maxlen(arg, enclosing_params):
+    """Max-len of a call argument when statically inferable: a (list ...)
+    literal (its length) or a direct reference to an enclosing parameter with
+    a declared list type. Everything else: None, deferred to clarinet check."""
+    if (isinstance(arg, Node) and arg.children
+            and isinstance(arg.children[0], Token)
+            and arg.children[0].text == "list"):
+        return len(arg.children) - 1
+    if isinstance(arg, Token) and arg.kind == "ATOM":
+        for pname, ptype in enclosing_params:
+            if pname == arg.text:
+                return list_maxlen(ptype)
+    return None
+
+
+def check_list_covariance(by_name, all_sites):
+    checked = skipped = 0
+    for s in all_sites:
+        callee = by_name[s.callee].defs[s.fn]
+        for arg, (pname, ptype) in zip(s.args, callee.params):
+            want = list_maxlen(ptype)
+            if want is None:
+                continue
+            got = arg_maxlen(arg, s.enclosing_params)
+            if got is None:
+                skipped += 1
+                continue
+            checked += 1
+            if got > want:
+                raise FlattenError(
+                    f"{s.caller}: argument for {s.callee}.{s.fn} param "
+                    f"{pname} has max-len {got} > declared {want}")
+    return checked, skipped
+
+
 def check_coupled_constants(by_name):
     """The Stage 3 tripwire: duplicated constants are KEPT (never deduped,
     the qm31 sync test requires both copies) but must stay value-equal;
@@ -753,6 +799,8 @@ def build(names):
         check_collisions(gears)
         check_coupled_constants(by_name)
         check_math_anchor(by_name)
+        checked, skipped = check_list_covariance(by_name, all_sites)
+        print(f"list-covariance: checked={checked} deferred-to-clarinet={skipped}")
     return gears, by_name
 
 
