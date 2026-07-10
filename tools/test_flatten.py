@@ -381,6 +381,29 @@ def test_covariance_fires_on_oversized_literal():
         "max-len 3 > declared 2")
 
 
+def test_full_emit_no_contract_call_and_under_limit():
+    gears, _by = flatten.build(list(flatten.GEAR_ORDER))
+    flat = flatten.emit_flat(gears)
+    assert "contract-call?" not in flat
+    assert len(flat.encode()) < flatten.SIZE_LIMIT
+    for name in flatten.GEAR_ORDER:
+        assert f"gear: {name} (contracts/{name}.clar)" in flat
+
+
+def test_full_emit_deterministic():
+    gears1, _b1 = flatten.build(list(flatten.GEAR_ORDER))
+    gears2, _b2 = flatten.build(list(flatten.GEAR_ORDER))
+    assert flatten.emit_flat(gears1) == flatten.emit_flat(gears2)
+
+
+def test_full_emit_strips_gear_comments():
+    gears, _by = flatten.build(list(flatten.GEAR_ORDER))
+    flat = flatten.emit_flat(gears)
+    # a known gear-body comment must NOT survive into the artifact
+    assert "the classic Merkle bug" not in flat
+    assert "NOT STANDALONE-SOUND" not in flat
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -422,6 +445,9 @@ TESTS = [
     test_math_anchor_fires,
     test_covariance_green_and_nonvacuous,
     test_covariance_fires_on_oversized_literal,
+    test_full_emit_no_contract_call_and_under_limit,
+    test_full_emit_deterministic,
+    test_full_emit_strips_gear_comments,
 ]
 
 if __name__ == "__main__":

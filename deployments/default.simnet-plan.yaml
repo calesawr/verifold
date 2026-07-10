@@ -119,4 +119,9 @@ plan:
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/driver.clar
       clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: verifold-flat
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/verifold-flat.clar
+      clarity-version: 3
     epoch: '3.1'
