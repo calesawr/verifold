@@ -268,3 +268,189 @@ class Gear:
             if d.name in self.defs:
                 raise FlattenError(f"{self.name}: duplicate definition {d.name}")
             self.defs[d.name] = d
+
+
+# ---------------- Stage 2/4: classification and the two edit kinds ----------------
+
+CLASS_LITERAL = "literal"
+CLASS_LOCAL = "local"
+CLASS_TOPLEVEL = "toplevel"
+CLASS_NATIVE = "native"
+
+# Provisional until Task 5: any unresolved atom classifies native. The real
+# whitelist flips unresolved atoms into loud build errors.
+NATIVE_WHITELIST = None
+# Populated by the Stage 3 lint gate (Task 6): environment and state reads.
+FORBIDDEN_ATOMS = set()
+# No response wrapper may hold a contract-call?: the direct-call rewrite is
+# only proven for bare read-only values (verified suite-wide precondition).
+WRAP_FORBIDDEN = {"try!", "unwrap!", "unwrap-err!", "match"}
+
+
+def is_literal_atom(t):
+    return (t.startswith("0x")
+            or (t.startswith("u") and t[1:].isdigit())
+            or t.isdigit() or (t.startswith("-") and t[1:].isdigit())
+            or t in ("true", "false", "none"))
+
+
+def is_contract_call(n):
+    return (isinstance(n, Node) and n.children
+            and isinstance(n.children[0], Token)
+            and n.children[0].text == "contract-call?")
+
+
+class CallSite:
+    __slots__ = ("caller", "callee", "fn", "arity", "args",
+                 "enclosing_params", "start")
+
+    def __init__(self, caller, callee, fn, arity, args, enclosing_params, start):
+        self.caller = caller
+        self.callee = callee
+        self.fn = fn
+        self.arity = arity
+        self.args = args
+        self.enclosing_params = enclosing_params
+        self.start = start
+
+
+class Analysis:
+    def __init__(self):
+        self.edits = []
+        self.call_sites = []
+        self.local_names = set()
+        self.tuple_keys = set()
+
+
+def classify_gear(gear):
+    """ONE traversal per gear: classifies every atom, collects the rename
+    edits (Rule 2), the contract-call? frames (Rule 1), local binders, and
+    tuple keys. Rename rule: every symbol atom equal to a top-level name of
+    THIS gear is prefixed, excluding tuple keys, the key argument of get,
+    type annotations, and local shadows (the collision lint pins that none
+    exist). A future `match` with binders would surface here as an
+    unclassifiable binder atom, loudly."""
+    a = Analysis()
+    top = set(gear.defs.keys())
+
+    def atom_class(tok, locals_):
+        t = tok.text
+        if is_literal_atom(t):
+            return CLASS_LITERAL
+        if t in locals_:
+            return CLASS_LOCAL
+        if t in top:
+            return CLASS_TOPLEVEL
+        if NATIVE_WHITELIST is None or t in NATIVE_WHITELIST:
+            if t in FORBIDDEN_ATOMS:
+                raise FlattenError(
+                    f"{gear.name}: forbidden native {t!r} at byte {tok.start}; "
+                    "environment/state reads break the pure-function transform")
+            return CLASS_NATIVE
+        raise FlattenError(
+            f"{gear.name}: unclassifiable atom {t!r} at byte {tok.start}; "
+            "not a literal, local, top-level name, or whitelisted native")
+
+    def walk_type(node):
+        # type annotations: atoms must be natives or literals, keys are keys
+        if isinstance(node, Token):
+            if node.kind == "ATOM" and not is_literal_atom(node.text) \
+                    and NATIVE_WHITELIST is not None \
+                    and node.text not in NATIVE_WHITELIST:
+                raise FlattenError(
+                    f"{gear.name}: unknown atom {node.text!r} in a type "
+                    f"annotation at byte {node.start}")
+            return
+        if isinstance(node, Tup):
+            for key, val in node.pairs:
+                a.tuple_keys.add(key.text)
+                walk_type(val)
+            return
+        for k in node.children:
+            walk_type(k)
+
+    def walk(node, locals_, enclosing_params):
+        if isinstance(node, Token):
+            if node.kind == "ATOM" and atom_class(node, locals_) == CLASS_TOPLEVEL:
+                a.edits.append((node.start, node.end,
+                                gear.name + SEPARATOR + node.text))
+            return
+        if isinstance(node, Tup):
+            for key, val in node.pairs:
+                a.tuple_keys.add(key.text)  # keys are NEVER renamed (wire format)
+                walk(val, locals_, enclosing_params)
+            return
+        kids = node.children
+        head = kids[0] if kids and isinstance(kids[0], Token) else None
+        if head is not None and head.text in WRAP_FORBIDDEN and len(kids) > 1 \
+                and is_contract_call(kids[1]):
+            raise FlattenError(
+                f"{gear.name}: {head.text} wraps a contract-call? at byte "
+                f"{node.start}; the direct-call rewrite is not proven under a "
+                "response wrapper. STOP and review the design.")
+        if is_contract_call(node):
+            target, fn = kids[1], kids[2]
+            if not (isinstance(target, Token) and isinstance(fn, Token)
+                    and target.text.startswith(".")):
+                raise FlattenError(
+                    f"{gear.name}: unsupported contract-call? shape at byte {node.start}")
+            callee = target.text[1:]
+            a.call_sites.append(CallSite(gear.name, callee, fn.text,
+                                         len(kids) - 3, kids[3:],
+                                         enclosing_params, node.start))
+            # Rule 1: (contract-call? .X fn a1 ...) becomes (X/fn a1 ...),
+            # arguments byte-copied verbatim (walked below for their own edits)
+            a.edits.append((head.start, fn.end, callee + SEPARATOR + fn.text))
+            for arg in kids[3:]:
+                walk(arg, locals_, enclosing_params)
+            return
+        if head is not None and head.text == "get" and len(kids) == 3:
+            a.tuple_keys.add(kids[1].text)  # the key argument of get: never renamed
+            walk(kids[2], locals_, enclosing_params)
+            return
+        if head is not None and head.text == "let":
+            inner = set(locals_)  # Clarity let is sequential
+            for b in kids[1].children:
+                walk(b.children[1], inner, enclosing_params)
+                a.local_names.add(b.children[0].text)
+                inner.add(b.children[0].text)
+            for body in kids[2:]:
+                walk(body, inner, enclosing_params)
+            return
+        for k in kids:
+            walk(k, locals_, enclosing_params)
+
+    for form in gear.forms:
+        head = form.children[0].text
+        if head == "define-constant":
+            name_tok = form.children[1]
+            a.edits.append((name_tok.start, name_tok.end,
+                            gear.name + SEPARATOR + name_tok.text))
+            walk(form.children[2], set(), [])
+        else:
+            sig = form.children[1]
+            name_tok = sig.children[0]
+            a.edits.append((name_tok.start, name_tok.end,
+                            gear.name + SEPARATOR + name_tok.text))
+            params_list = gear.defs[name_tok.text].params
+            for pname, ptype in params_list:
+                a.local_names.add(pname)
+                walk_type(ptype)
+            locals_ = {p for p, _t in params_list}
+            for body in form.children[2:]:
+                walk(body, locals_, params_list)
+    return a
+
+
+def apply_edits(src, edits):
+    """Apply non-overlapping byte-range edits right to left. Nested
+    contract-call? edits sit inside other edits' ARGUMENT ranges, never inside
+    a replaced range, so descending-start order applies them inside out."""
+    edits = sorted(edits, key=lambda e: e[0], reverse=True)
+    for i in range(len(edits) - 1):
+        if edits[i + 1][1] > edits[i][0]:
+            raise FlattenError(f"overlapping edits at byte {edits[i][0]}")
+    out = src
+    for start, end, rep in edits:
+        out = out[:start] + rep + out[end:]
+    return out

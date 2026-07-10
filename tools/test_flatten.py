@@ -61,12 +61,66 @@ def test_constant_values():
     assert t.defs["OP_ABSORB"].value == ("buff", b"\x00")
 
 
+def _flat_text(name):
+    g = flatten.Gear(name, flatten.read_gear(name))
+    a = flatten.classify_gear(g)
+    return flatten.apply_edits(g.src, a.edits)
+
+
+def test_rename_field():
+    text = _flat_text("field")
+    assert "(define-read-only (field/m31-add (a uint) (b uint))" in text
+    assert "(mod (+ a b) field/P)" in text
+    assert "(define-constant field/P u2147483647)" in text
+
+
+def test_fold_callbacks_renamed():
+    # the bare callback name is just another matching atom; no special case
+    assert "(fold field/pow-step field/STEPS" in _flat_text("field")
+
+
+def test_contract_call_elimination_qm31():
+    text = _flat_text("qm31")
+    assert "contract-call?" not in text
+    assert "(field/m31-inv (qm31/m31-add (qm31/m31-mul c0 c0) " \
+           "(qm31/m31-mul c1 c1))" in text
+    # tuple keys re/im and get keys survive untouched
+    assert "{ re: (qm31/m31-mul c0 ninv)" in text
+    assert "(qm31/cm-mul-r (get re bd) (get im bd))" in text
+
+
+def test_nested_call_rewrite_driver():
+    # nested contract-call? in an argument position rewrites inside out
+    text = _flat_text("driver")
+    assert "contract-call?" not in text
+    assert "(merkle/merkle-root (driver/qleaf self)" in text
+    assert "(fold driver/query-step queries" in text
+
+
+def test_tuple_keys_and_get_keys_never_renamed():
+    # synthetic: a tuple key and a get key that COLLIDE with a top-level name
+    # must stay bare while the constant itself is prefixed
+    src = ("(define-constant re u1)\n"
+           "(define-read-only (f (t { re: uint })) (get re t))\n")
+    g = flatten.Gear("field", src)
+    a = flatten.classify_gear(g)
+    text = flatten.apply_edits(g.src, a.edits)
+    assert "(define-constant field/re u1)" in text
+    assert "(get re t)" in text
+    assert "{ re: uint }" in text
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
     test_symbol_tables_field,
     test_symbol_tables_all_gears,
     test_constant_values,
+    test_rename_field,
+    test_fold_callbacks_renamed,
+    test_contract_call_elimination_qm31,
+    test_nested_call_rewrite_driver,
+    test_tuple_keys_and_get_keys_never_renamed,
 ]
 
 if __name__ == "__main__":
