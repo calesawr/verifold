@@ -28,19 +28,32 @@ GEARS = set(GEAR_ORDER)
 
 
 def split_sections(flat_text):
+    """Parse the flat artifact into (header_text, sections_dict).
+
+    header_text is everything before the first gear banner.
+    sections_dict maps gear name -> body text (lines between banners).
+    Raises ValueError on duplicate gear banners.
+    """
     sections = {}
+    header_lines = []
     current, buf = None, []
     for line in flat_text.split("\n"):
         m = BANNER_RE.match(line)
         if m:
+            name = m.group(1)
+            if name in sections:
+                raise ValueError(f"duplicate gear banner: {name}")
             if current is not None:
                 sections[current] = "\n".join(buf)
-            current, buf = m.group(1), []
+            current, buf = name, []
         elif current is not None:
             buf.append(line)
+        else:
+            # before the first gear banner — accumulate as header
+            header_lines.append(line)
     if current is not None:
         sections[current] = "\n".join(buf)
-    return sections
+    return "\n".join(header_lines), sections
 
 
 def code_tokens(text):
@@ -68,11 +81,31 @@ def invert(flat_toks, gear_name):
 def compare(flat_text):
     """Token-stream identity for all 11 gears; returns failure diagnostics."""
     failures = []
-    sections = split_sections(flat_text)
+    try:
+        header_text, sections = split_sections(flat_text)
+    except ValueError as exc:
+        return [str(exc)]
+
+    # (a) Header region must contain zero non-comment tokens
+    header_code = code_tokens(header_text)
+    if header_code:
+        failures.append(
+            f"header: non-comment token(s) found before first gear banner "
+            f"(first: {header_code[0].text!r})")
+
+    # (b) Discovered section names must equal GEAR_ORDER exactly
+    expected = set(GEAR_ORDER)
+    found = set(sections)
+    unknown = found - expected
+    missing = expected - found
+    for name in sorted(unknown):
+        failures.append(f"unknown section: {name!r} is not a known gear")
+    for name in sorted(missing):
+        failures.append(f"{name}: missing gear banner/section")
+    if unknown or missing:
+        return failures  # stop early — no point checking unknown/missing gears
+
     for gear in GEAR_ORDER:
-        if gear not in sections:
-            failures.append(f"{gear}: missing gear banner/section")
-            continue
         want = [t.text for t in code_tokens(read_gear(gear))]
         got = invert(code_tokens(sections[gear]), gear)
         if want != got:
