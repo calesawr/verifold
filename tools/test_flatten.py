@@ -343,6 +343,19 @@ def test_tripwire_fires_on_sy_drift():
                  "SY")
 
 
+def test_math_anchor_green():
+    _gears, by_name, _sites = _all_gears()
+    flatten.check_math_anchor(by_name)
+
+
+def test_math_anchor_fires():
+    _gears, by_name, _sites = _all_gears()
+    by_name["query"].defs["OFF"].value = \
+        ("tuple", {"re": ("uint", 1), "im": ("uint", 2)})
+    expect_error(lambda: flatten.check_math_anchor(by_name),
+                 "math anchor: query.OFF")
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -380,6 +393,8 @@ TESTS = [
     test_tripwire_fires_on_inlined_get_params,
     test_tripwire_fires_on_params_l_drift,
     test_tripwire_fires_on_sy_drift,
+    test_math_anchor_green,
+    test_math_anchor_fires,
 ]
 
 if __name__ == "__main__":

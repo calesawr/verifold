@@ -574,6 +574,35 @@ def check_collisions(gears):
                 f"top-level names: {sorted(bad)}")
 
 
+def check_math_anchor(by_name):
+    """Stage 3 math anchor: computed-equals-pinned at the toy point, so the
+    constants are certified against the circle math, not just each other."""
+    import params
+    d = params.derived()
+
+    def cval(gear, name):
+        return by_name[gear].defs[name].value
+
+    checks = [
+        ("query.OFF", cval("query", "OFF"),
+         ("tuple", {"re": ("uint", d["OFF"]["re"]), "im": ("uint", d["OFF"]["im"])})),
+        ("query.H", cval("query", "H"),
+         ("tuple", {"re": ("uint", d["H"]["re"]), "im": ("uint", d["H"]["im"])})),
+        ("cair.SX", cval("cair", "SX"), ("uint", d["SX"])),
+        ("cair.SY", cval("cair", "SY"), ("uint", d["SY"])),
+        ("cdeep.SX", cval("cdeep", "SX"), ("uint", d["SX"])),
+        ("cdeep.SY", cval("cdeep", "SY"), ("uint", d["SY"])),
+        ("schedule.DOMAIN_SIZE", cval("schedule", "DOMAIN_SIZE"),
+         ("uint", d["DOMAIN_SIZE"])),
+        ("schedule.POW_THRESHOLD", cval("schedule", "POW_THRESHOLD"),
+         ("uint", d["POW_THRESHOLD"])),
+        ("driver.PARAMS", cval("driver", "PARAMS"), ("buff", d["PARAMS"])),
+    ]
+    for label, got, want in checks:
+        if got != want:
+            raise FlattenError(f"math anchor: {label} pinned {got} != computed {want}")
+
+
 def check_coupled_constants(by_name):
     """The Stage 3 tripwire: duplicated constants are KEPT (never deduped,
     the qm31 sync test requires both copies) but must stay value-equal;
@@ -723,6 +752,7 @@ def build(names):
         check_call_sites(by_name, all_sites)
         check_collisions(gears)
         check_coupled_constants(by_name)
+        check_math_anchor(by_name)
     return gears, by_name
 
 

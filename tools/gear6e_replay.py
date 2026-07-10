@@ -15,8 +15,7 @@
 # Phase F: adversarial pre-validation (N-GARBAGE, N-OOD-FRI, RECOMB-CANCEL, N23/N24) with the
 #          real transcript, asserting each documented reject site.
 import hashlib, json, random, sys
-
-P = 2**31 - 1
+from params import P, G, cmul, cpow
 
 # ---------- M31 / CM31 / QM31 ----------
 def madd(a, b): return (a + b) % P
@@ -25,14 +24,6 @@ def mmul(a, b): return (a * b) % P
 def minv(a): return pow(a, P - 2, P)
 def cadd(a, b): return (madd(a[0], b[0]), madd(a[1], b[1]))
 def csub(a, b): return (msub(a[0], b[0]), msub(a[1], b[1]))
-def cmul(a, b): return (msub(mmul(a[0], b[0]), mmul(a[1], b[1])),
-                        madd(mmul(a[0], b[1]), mmul(a[1], b[0])))
-def cpow(b, e):
-    r = (1, 0)
-    while e:
-        if e & 1: r = cmul(r, b)
-        b = cmul(b, b); e >>= 1
-    return r
 R = (2, 1)
 def qadd(a, b): return tuple(madd(x, y) for x, y in zip(a, b))
 def qsub(a, b): return tuple(msub(x, y) for x, y in zip(a, b))
@@ -55,7 +46,6 @@ def conj_u(a): return (a[0], a[1], msub(0, a[2]), msub(0, a[3]))
 ONE = qemb(1); Z4 = (0, 0, 0, 0)
 
 # ---------- circle ----------
-G = (2, 1268011823)
 def gp(idx): return cpow(G, idx % (2**31))
 def conj_pt(p): return (p[0], msub(0, p[1]))
 def padd(a, b): return (msub(mmul(a[0], b[0]), mmul(a[1], b[1])), madd(mmul(a[0], b[1]), mmul(a[1], b[0])))
