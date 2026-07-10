@@ -129,6 +129,21 @@ def test_merge_key_positions():
     assert "{ q: field/P }" in text
 
 
+def test_emit_two_gear_skeleton():
+    gears, _by = flatten.build(["field", "qm31"])
+    flat = flatten.emit_flat(gears)
+    assert flat.startswith(";; verifold-flat.clar: GENERATED FILE. DO NOT EDIT.")
+    assert "gear: field (contracts/field.clar)" in flat
+    assert "gear: qm31 (contracts/qm31.clar)" in flat
+    assert "contract-call?" not in flat
+    # comments stripped: the only ;; lines are the header and the banners
+    comment_lines = [ln for ln in flat.split("\n") if ln.lstrip().startswith(";;")]
+    assert all(("GENERATED" in ln or "gear:" in ln or "Inputs" in ln
+                or "Generator" in ln or "Regenerate" in ln or "Verify" in ln
+                or ln.startswith(";;   ") or "One-contract" in ln)
+               for ln in comment_lines), comment_lines
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -141,6 +156,7 @@ TESTS = [
     test_nested_call_rewrite_driver,
     test_tuple_keys_and_get_keys_never_renamed,
     test_merge_key_positions,
+    test_emit_two_gear_skeleton,
 ]
 
 if __name__ == "__main__":

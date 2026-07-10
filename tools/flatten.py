@@ -456,3 +456,133 @@ def apply_edits(src, edits):
     for start, end, rep in edits:
         out = out[:start] + rep + out[end:]
     return out
+
+
+# ---------------- Stage 5: emission ----------------
+
+SIZE_LIMIT = 80 * 1024  # hard read-length headroom assert
+
+
+def gear_flat_text(gear, edits):
+    """Rewritten body for one gear: the two edit kinds plus comment deletion.
+    Prose lives in the gears; the artifact carries banners and provenance."""
+    edits = list(edits) + [(t.start, t.end, "")
+                           for t in gear.tokens if t.kind == "COMMENT"]
+    text = apply_edits(gear.src, edits)
+    lines = [ln.rstrip() for ln in text.split("\n")]
+    return "\n".join(ln for ln in lines if ln != "")
+
+
+def banner(gear_name):
+    bar = "=" * 25
+    return f";; {bar} gear: {gear_name} (contracts/{gear_name}.clar) {bar}"
+
+
+def provenance_header(gears):
+    lines = [
+        ";; verifold-flat.clar: GENERATED FILE. DO NOT EDIT.",
+        ";; One-contract emission of the 11-gear circle-STARK verifier.",
+        f";; Generator: tools/flatten.py v{GENERATOR_VERSION} (separator {SEPARATOR!r})",
+        ";; Regenerate: python3 tools/flatten.py",
+        ";; Verify:     python3 tools/flatten_check.py",
+        ";; Inputs (sha256):",
+    ]
+    for g in gears:
+        lines.append(f";;   {sha256_hex(g.src)}  contracts/{g.name}.clar")
+    return "\n".join(lines)
+
+
+def emit_flat(gears, extra=None):
+    """Deterministic emission: provenance header, then per-gear banner and
+    body in GEAR_ORDER. No timestamps anywhere."""
+    extra = extra or {}
+    parts = [provenance_header(gears)]
+    for g in gears:
+        parts.append(banner(g.name))
+        parts.append(gear_flat_text(g, g.analysis.edits + extra.get(g.name, [])))
+    flat = "\n".join(parts) + "\n"
+    size = len(flat.encode("utf-8"))
+    if size >= SIZE_LIMIT:
+        raise FlattenError(f"emitted {size} bytes >= {SIZE_LIMIT} hard limit")
+    return flat
+
+
+def max_let_depth(node, cur=0):
+    best = cur
+    if isinstance(node, Node):
+        head = node.children[0] if node.children \
+            and isinstance(node.children[0], Token) else None
+        nxt = cur + 1 if head is not None and head.text == "let" else cur
+        for k in node.children:
+            best = max(best, max_let_depth(k, nxt))
+    elif isinstance(node, Tup):
+        for _k, v in node.pairs:
+            best = max(best, max_let_depth(v, cur))
+    return best
+
+
+def print_stats(flat, gears):
+    # the spec's Stage 5 --emit-stats names the FUNCTION count, so functions
+    # and constants print separately (never a merged definitions number)
+    depth = max(max_let_depth(f) for g in gears for f in g.forms)
+    n_fn = sum(1 for g in gears for d in g.defs.values() if d.kind != "constant")
+    n_const = sum(1 for g in gears for d in g.defs.values() if d.kind == "constant")
+    print(f"emit-stats: bytes={len(flat.encode('utf-8'))} "
+          f"functions={n_fn} constants={n_const} "
+          f"gears={len(gears)} max-let-depth={depth}")
+
+
+# ---------------- driver ----------------
+
+def build(names):
+    """Parse, self-check, and classify the requested gears."""
+    gears = [Gear(n, read_gear(n)) for n in names]
+    by_name = {g.name: g for g in gears}
+    for g in gears:
+        if reemit(g.src, g.tokens) != g.src:
+            raise FlattenError(f"{g.name}: span re-emission not byte-identical")
+        g.analysis = classify_gear(g)
+    return gears, by_name
+
+
+def parse_args(argv):
+    opts = {"gears": None,
+            "out": os.path.join(REPO_ROOT, "contracts", "verifold-flat.clar"),
+            "out_given": False,
+            "manifest": os.path.join(REPO_ROOT, "tools", "flat-manifest.json"),
+            "mutate": None, "production": False}
+    it = iter(argv)
+    for arg in it:
+        if arg == "--gears":
+            opts["gears"] = next(it).split(",")
+        elif arg == "--out":
+            opts["out"] = next(it)
+            opts["out_given"] = True
+        elif arg == "--manifest":
+            opts["manifest"] = next(it)
+        elif arg == "--mutate":
+            opts["mutate"] = next(it)
+        elif arg == "--production":
+            opts["production"] = True
+        else:
+            raise SystemExit(f"unknown option {arg}")
+    return opts
+
+
+def main(argv):
+    opts = parse_args(argv)
+    names = opts["gears"] or GEAR_ORDER
+    unknown = [n for n in names if n not in GEAR_ORDER]
+    if unknown:
+        raise SystemExit(f"unknown gears: {unknown}")
+    names = [n for n in GEAR_ORDER if n in names]  # always emit in deploy order
+    gears, by_name = build(names)
+    flat = emit_flat(gears)
+    with open(opts["out"], "w", encoding="utf-8") as fh:
+        fh.write(flat)
+    print_stats(flat, gears)
+    print(f"wrote {opts['out']}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
