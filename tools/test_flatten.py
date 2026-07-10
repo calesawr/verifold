@@ -404,6 +404,46 @@ def test_full_emit_strips_gear_comments():
     assert "NOT STANDALONE-SOUND" not in flat
 
 
+def test_manifest_covers_every_definition():
+    gears, _by = flatten.build(list(flatten.GEAR_ORDER))
+    m = flatten.build_manifest(gears)
+    total = sum(len(v) for v in m["functions"].values()) \
+        + sum(len(v) for v in m["constants"].values())
+    assert total == 134, total
+    # Stage 4 acceptance: emitted top-level names are globally unique
+    flats = [v["flat"] for table in (m["functions"], m["constants"])
+             for gear_map in table.values() for v in gear_map.values()]
+    assert len(set(flats)) == len(flats) == 134
+    assert m["separator"] == "/"
+    assert m["gearOrder"] == flatten.GEAR_ORDER
+    assert set(m["inputs"].keys()) == set(flatten.GEAR_ORDER)
+
+
+def test_manifest_lookup_shape():
+    gears, _by = flatten.build(list(flatten.GEAR_ORDER))
+    m = flatten.build_manifest(gears)
+    assert m["functions"]["driver"]["verify"] == \
+        {"flat": "driver/verify", "kind": "read-only", "arity": 14}
+    assert m["functions"]["field"]["m31-add"] == \
+        {"flat": "field/m31-add", "kind": "read-only", "arity": 2}
+    assert m["functions"]["transcript"]["absorb"]["kind"] == "private"
+    assert m["constants"]["qm31"]["P"] == {"flat": "qm31/P", "kind": "constant"}
+
+
+def test_manifest_m2_spans_resolve():
+    gears, _by = flatten.build(list(flatten.GEAR_ORDER))
+    m = flatten.build_manifest(gears)
+    spans = m["m2ParameterSpans"]
+    assert len(spans) == 31
+    by_key = {(s["gear"], s["name"]): s for s in spans}
+    q = by_key[("query", "DOMAIN_SIZE")]
+    src = flatten.read_gear("query")
+    assert src[q["byteStart"]:q["byteEnd"]].startswith(
+        "(define-constant DOMAIN_SIZE u16)")
+    assert ("driver", "verify-query") in by_key
+    assert len(m["m2Notes"]) == 3
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -448,6 +488,9 @@ TESTS = [
     test_full_emit_no_contract_call_and_under_limit,
     test_full_emit_deterministic,
     test_full_emit_strips_gear_comments,
+    test_manifest_covers_every_definition,
+    test_manifest_lookup_shape,
+    test_manifest_m2_spans_resolve,
 ]
 
 if __name__ == "__main__":

@@ -715,6 +715,95 @@ def check_coupled_constants(by_name):
             "every constant check above")
 
 
+# ---------------- Stage 5: the manifest ----------------
+
+# Every toy-parameter-coupled span, tagged with source location and role.
+# This inventory is M2's work order: only these regions become
+# template-generated; everything else continues through the verbatim
+# transform. 31 entries.
+M2_SPAN_ROLES = [
+    ("query", "DOMAIN_SIZE", "toy LDE coset size 2^L; production ~2^17"),
+    ("query", "HALF", "DOMAIN_SIZE / 2, the half-coset size"),
+    ("query", "CM_POW_BOUND", "must stay >= HALF"),
+    ("query", "CM_STEPS", "ceil(log2(HALF)) unrolled square-and-multiply bits"),
+    ("query", "OFF", "canonic coset shift G^(2^26) at L=4; derive from params"),
+    ("query", "H", "half-coset step G^(2^28) at L=4; derive from params"),
+    ("query", "BITREV4", "width-L bit-reversal literal; a 2^17-entry table is "
+                          "infeasible, compute bitrev at production size"),
+    ("query", "bitrev", "lookup-based; must become computed at production size"),
+    ("schedule", "N", "query count; ~96 at provable parameters"),
+    ("schedule", "L", "FRI commitment count; grows with depth at production"),
+    ("schedule", "DOMAIN_SIZE", "query-index modulus, coupled to query gear"),
+    ("schedule", "POW_THRESHOLD", "2^(128 - pow_bits)"),
+    ("schedule", "QUERY_COUNTER", "length-N counter list"),
+    ("schedule", "fri-beta-step", "(list 32 ...) betas cap; derive from params"),
+    ("schedule", "query-idx-step", "(list 32 uint) idx cap is SMALLER than the "
+                                   "~96 production queries; MUST derive from params"),
+    ("cair", "SX", "trace step x; == H.re at the toy point"),
+    ("cair", "SY", "trace step y; == H.im at the toy point"),
+    ("cair", "SEL_A", "pair-vanishing selector line through P6,P7"),
+    ("cair", "SEL_B", "pair-vanishing selector line through P6,P7"),
+    ("cair", "SEL_C", "pair-vanishing selector line through P6,P7"),
+    ("cair", "B01_A", "boundary pair-vanishing line through P0,P1"),
+    ("cair", "B01_B", "boundary pair-vanishing line through P0,P1"),
+    ("cair", "B01_C", "boundary pair-vanishing line through P0,P1"),
+    ("cair", "coset-vanish", "two lifted qpi doublings = log(TRACE_ROWS)-1"),
+    ("cair", "mask-point", "k<3 unrolled mask chain"),
+    ("cdeep", "SX", "own copy of the trace step (own-G precedent)"),
+    ("cdeep", "SY", "own copy of the trace step (own-G precedent)"),
+    ("cdeep", "deep-row", "gamma-power unroll g^0..g^6 and the 4-way comp packing"),
+    ("driver", "PARAMS", "N, L, blowup, pow_bits, air_id bytes"),
+    ("driver", "verify-query", "depth-4 paths, parent lengths 3/2/1, the "
+                               "unrolled circle+line fold cascade"),
+    ("driver", "query-step", "(list 32 uint) idx read; proof-bundle list types"),
+]
+
+M2_NOTES = [
+    "schedule's (list 32 uint) idx cap is smaller than the ~96 queries "
+    "provable parameters need; derive every list cap from the params record "
+    "in M2.",
+    "gen_fullsize.py's single-let sequential unrolling and per-layer chunking "
+    "are the template idiom for the M2 driver cascade.",
+    "M2 ordering (founder-confirmed pending): full-size Rust prover and "
+    "fixture pipeline (extend interop prove.rs) BEFORE the parametric "
+    "generator; hint-checked inverses change the proof wire format.",
+]
+
+
+def build_manifest(gears):
+    functions = {}
+    constants = {}
+    for g in gears:
+        functions[g.name] = {}
+        constants[g.name] = {}
+        for name, d in g.defs.items():
+            flat_name = g.name + SEPARATOR + name
+            if d.kind == "constant":
+                constants[g.name][name] = {"flat": flat_name, "kind": "constant"}
+            else:
+                functions[g.name][name] = {"flat": flat_name, "kind": d.kind,
+                                           "arity": d.arity}
+    by_name = {g.name: g for g in gears}
+    spans = []
+    for gear_name, def_name, note in M2_SPAN_ROLES:
+        d = by_name[gear_name].defs[def_name]
+        spans.append({"gear": gear_name, "name": def_name, "kind": d.kind,
+                      "byteStart": d.start, "byteEnd": d.end, "note": note})
+    return {
+        "version": 1,
+        "generator": f"tools/flatten.py v{GENERATOR_VERSION}",
+        "separator": SEPARATOR,
+        "contract": "verifold-flat",
+        "gearOrder": GEAR_ORDER,
+        "inputs": {g.name: {"path": f"contracts/{g.name}.clar",
+                            "sha256": sha256_hex(g.src)} for g in gears},
+        "functions": functions,
+        "constants": constants,
+        "m2ParameterSpans": spans,
+        "m2Notes": M2_NOTES,
+    }
+
+
 # ---------------- Stage 5: emission ----------------
 
 SIZE_LIMIT = 80 * 1024  # hard read-length headroom assert
@@ -846,6 +935,11 @@ def main(argv):
     with open(opts["out"], "w", encoding="utf-8") as fh:
         fh.write(flat)
     print_stats(flat, gears)
+    if set(names) == set(GEAR_ORDER) and not opts["production"]:
+        with open(opts["manifest"], "w", encoding="utf-8") as fh:
+            json.dump(build_manifest(gears), fh, indent=2, sort_keys=True)
+            fh.write("\n")
+        print(f"wrote {opts['manifest']}")
     print(f"wrote {opts['out']}")
 
 
