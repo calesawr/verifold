@@ -144,6 +144,69 @@ def test_emit_two_gear_skeleton():
                for ln in comment_lines), comment_lines
 
 
+def expect_error(fn, needle):
+    try:
+        fn()
+    except flatten.FlattenError as e:
+        assert needle in str(e), (needle, str(e))
+        return
+    raise AssertionError(f"expected FlattenError containing {needle!r}")
+
+
+def _all_gears():
+    gears, by_name = flatten.build(list(flatten.GEAR_ORDER))
+    sites = [s for g in gears for s in g.analysis.call_sites]
+    return gears, by_name, sites
+
+
+def test_native_whitelist_classifies_all_gears():
+    # Stage 2 acceptance: all atoms in all 11 gears classify with the REAL
+    # whitelist in force (build() raises on any unclassifiable atom)
+    gears, _by, sites = _all_gears()
+    assert flatten.NATIVE_WHITELIST is not None
+    assert len(sites) == 138
+
+
+def test_unclassifiable_atom_is_error():
+    expect_error(
+        lambda: flatten.classify_gear(
+            flatten.Gear("field", "(define-read-only (f) (frobnicate u1))")),
+        "unclassifiable atom 'frobnicate'")
+
+
+def test_call_census_pinned():
+    _gears, by_name, sites = _all_gears()
+    counts = {}
+    for s in sites:
+        counts[s.callee] = counts.get(s.callee, 0) + 1
+    assert counts == flatten.PINNED_CALL_BREAKDOWN
+    flatten.check_call_sites(by_name, sites)  # must not raise
+
+
+def test_call_census_drift_fires():
+    _gears, by_name, sites = _all_gears()
+    expect_error(lambda: flatten.check_call_sites(by_name, sites + [sites[0]]),
+                 "census drifted")
+
+
+def test_non_readonly_callee_fires():
+    _gears, by_name, sites = _all_gears()
+    by_name["field"].defs["m31-inv"].kind = "private"  # fresh objects per test
+    expect_error(lambda: flatten.check_call_sites(by_name, sites),
+                 "not read-only")
+
+
+def test_definition_order_violation_fires():
+    # a gear calling a LATER gear cannot flatten in deploy order
+    caller = flatten.Gear("field",
+        "(define-read-only (f (a uint)) (contract-call? .qm31 qm31-from-m31 a))")
+    a = flatten.classify_gear(caller)
+    by_name = {"field": caller,
+               "qm31": flatten.Gear("qm31", flatten.read_gear("qm31"))}
+    expect_error(lambda: flatten.check_call_sites(by_name, a.call_sites),
+                 "definition order")
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -157,6 +220,12 @@ TESTS = [
     test_tuple_keys_and_get_keys_never_renamed,
     test_merge_key_positions,
     test_emit_two_gear_skeleton,
+    test_native_whitelist_classifies_all_gears,
+    test_unclassifiable_atom_is_error,
+    test_call_census_pinned,
+    test_call_census_drift_fires,
+    test_non_readonly_callee_fires,
+    test_definition_order_violation_fires,
 ]
 
 if __name__ == "__main__":

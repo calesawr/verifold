@@ -277,9 +277,62 @@ CLASS_LOCAL = "local"
 CLASS_TOPLEVEL = "toplevel"
 CLASS_NATIVE = "native"
 
-# Provisional until Task 5: any unresolved atom classifies native. The real
-# whitelist flips unresolved atoms into loud build errors.
-NATIVE_WHITELIST = None
+# Vendored Clarity 3 native set, hand-pinned from clarity-repl's documented
+# function and keyword list at clarinet 3.19.0 (no machine-readable export
+# exists in the local toolchain; deviation from the spec recorded in the
+# plan). Omissions fail loudly (unclassifiable atom); extras are inert
+# (natives are never rewritten).
+NATIVE_WHITELIST = {
+    # arithmetic, comparison, logic
+    "+", "-", "*", "/", "mod", "pow", "sqrti", "log2", "xor", "and", "or",
+    "not", ">", ">=", "<", "<=", "is-eq",
+    # bit operations
+    "bit-and", "bit-not", "bit-or", "bit-shift-left", "bit-shift-right",
+    "bit-xor",
+    # sequences
+    "append", "as-max-len?", "concat", "element-at", "element-at?", "filter",
+    "fold", "index-of", "index-of?", "len", "list", "map", "replace-at?",
+    "slice?",
+    # control flow and unwrapping
+    "asserts!", "begin", "default-to", "if", "let", "match", "try!",
+    "unwrap!", "unwrap-err!", "unwrap-err-panic", "unwrap-panic",
+    # options and responses
+    "err", "is-err", "is-none", "is-ok", "is-some", "ok", "some",
+    # tuples
+    "get", "merge", "tuple",
+    # definitions (the forbidden ones are still RECOGNIZED here; the
+    # FORBIDDEN_DEFINES gate rejects their USE with a targeted message)
+    "define-constant", "define-private", "define-read-only", "define-public",
+    "define-data-var", "define-map", "define-trait", "use-trait",
+    "impl-trait", "define-fungible-token", "define-non-fungible-token",
+    # data (recognized; forbidden via FORBIDDEN_ATOMS in the lint gate)
+    "var-get", "var-set", "map-delete", "map-get?", "map-insert", "map-set",
+    # hashing and signatures
+    "hash160", "keccak256", "sha256", "sha512", "sha512/256",
+    "secp256k1-recover?", "secp256k1-verify",
+    # conversions
+    "buff-to-int-be", "buff-to-int-le", "buff-to-uint-be", "buff-to-uint-le",
+    "from-consensus-buff?", "int-to-ascii", "int-to-utf8", "string-to-int?",
+    "string-to-uint?", "to-consensus-buff?", "to-int", "to-uint",
+    # principals and calls
+    "as-contract", "contract-call?", "contract-of", "is-standard",
+    "principal-construct?", "principal-destruct?", "principal-of?",
+    # chain state (recognized; forbidden via FORBIDDEN_ATOMS)
+    "at-block", "get-block-info?", "get-burn-block-info?",
+    "get-stacks-block-info?", "get-tenure-info?", "print",
+    # assets (recognized; the defining forms are already forbidden)
+    "ft-burn?", "ft-get-balance", "ft-get-supply", "ft-mint?", "ft-transfer?",
+    "nft-burn?", "nft-get-owner?", "nft-mint?", "nft-transfer?",
+    "stx-account", "stx-burn?", "stx-get-balance", "stx-transfer?",
+    "stx-transfer-memo?",
+    # keywords (recognized; forbidden via FORBIDDEN_ATOMS where applicable)
+    "block-height", "burn-block-height", "chain-id", "contract-caller",
+    "is-in-mainnet", "is-in-regtest", "stacks-block-height",
+    "stx-liquid-supply", "tenure-height", "tx-sender", "tx-sponsor?",
+    # type words (appear in signatures and (list N T) forms)
+    "bool", "buff", "int", "optional", "principal", "response",
+    "string-ascii", "string-utf8", "uint",
+}
 # Populated by the Stage 3 lint gate (Task 6): environment and state reads.
 FORBIDDEN_ATOMS = set()
 # No response wrapper may hold a contract-call?: the direct-call rewrite is
@@ -458,6 +511,45 @@ def apply_edits(src, edits):
     return out
 
 
+# ---------------- Stage 2 acceptance: the pinned call census ----------------
+
+# 138 sites by callee, recounted by the judges and re-verified against the
+# working tree at plan time. Any future gear edit that adds or removes a
+# cross-contract call must re-pin this table DELIBERATELY.
+PINNED_CALL_BREAKDOWN = {"qm31": 90, "transcript": 19, "commit": 9,
+                         "field": 5, "query": 4, "merkle": 4, "fri": 2,
+                         "cair": 2, "schedule": 2, "cdeep": 1}
+
+
+def check_call_sites(by_name, all_sites):
+    counts = {}
+    for s in all_sites:
+        counts[s.callee] = counts.get(s.callee, 0) + 1
+        callee_gear = by_name.get(s.callee)
+        if callee_gear is None:
+            raise FlattenError(f"{s.caller}: contract-call? to unknown gear .{s.callee}")
+        d = callee_gear.defs.get(s.fn)
+        if d is None:
+            raise FlattenError(f"{s.caller}: call to missing {s.callee}.{s.fn}")
+        if d.kind != "read-only":
+            raise FlattenError(
+                f"{s.caller}: {s.callee}.{s.fn} is {d.kind}, not read-only. "
+                "The direct-call rewrite is only proven for bare read-only "
+                "values; a define-public callee returns a response wrapper. "
+                "STOP and extend the design before flattening this call.")
+        if d.arity != s.arity:
+            raise FlattenError(
+                f"{s.caller}: {s.callee}.{s.fn} arity {d.arity} != {s.arity}")
+        if GEAR_ORDER.index(s.callee) >= GEAR_ORDER.index(s.caller):
+            raise FlattenError(
+                f"{s.caller} calls {s.callee}: violates definition order "
+                f"(GEAR_ORDER is the concatenation order)")
+    if counts != PINNED_CALL_BREAKDOWN:
+        raise FlattenError(
+            f"call-site census drifted: {counts} != {PINNED_CALL_BREAKDOWN}. "
+            "A gear edit changed the cross-contract call set; re-pin deliberately.")
+
+
 # ---------------- Stage 5: emission ----------------
 
 SIZE_LIMIT = 80 * 1024  # hard read-length headroom assert
@@ -542,6 +634,9 @@ def build(names):
         if reemit(g.src, g.tokens) != g.src:
             raise FlattenError(f"{g.name}: span re-emission not byte-identical")
         g.analysis = classify_gear(g)
+    if set(names) == set(GEAR_ORDER):
+        all_sites = [s for g in gears for s in g.analysis.call_sites]
+        check_call_sites(by_name, all_sites)
     return gears, by_name
 
 
