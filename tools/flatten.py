@@ -574,6 +574,66 @@ def check_collisions(gears):
                 f"top-level names: {sorted(bad)}")
 
 
+def check_coupled_constants(by_name):
+    """The Stage 3 tripwire: duplicated constants are KEPT (never deduped,
+    the qm31 sync test requires both copies) but must stay value-equal;
+    driver PARAMS must stay consistent with schedule's constants; and
+    get-params must serve exactly those constants by direct reference, so
+    the constant checks are checks on what get-params actually returns."""
+    def const(gear, name):
+        d = by_name[gear].defs.get(name)
+        if d is None or d.kind != "constant":
+            raise FlattenError(f"tripwire: missing constant {gear}.{name}")
+        return d.value
+
+    p_owners = ["field", "qm31", "transcript", "commit", "query", "cdeep"]
+    vals = {g: const(g, "P") for g in p_owners}
+    if any(v != ("uint", 2147483647) for v in vals.values()):
+        raise FlattenError(f"tripwire: P copies diverged: {vals}")
+    for name in ("SX", "SY"):
+        if const("cair", name) != const("cdeep", name):
+            raise FlattenError(f"tripwire: cair.{name} != cdeep.{name}")
+    if const("query", "DOMAIN_SIZE") != const("schedule", "DOMAIN_SIZE"):
+        raise FlattenError("tripwire: query.DOMAIN_SIZE != schedule.DOMAIN_SIZE")
+    params = const("driver", "PARAMS")[1]        # 8 bytes: N L blowup pow air_id(4)
+    n = const("schedule", "N")[1]
+    l = const("schedule", "L")[1]
+    domain = const("schedule", "DOMAIN_SIZE")[1]
+    pow_threshold = const("schedule", "POW_THRESHOLD")[1]
+    counter = const("schedule", "QUERY_COUNTER")[1]
+    if params[0] != n:
+        raise FlattenError(f"tripwire: PARAMS N byte {params[0]} != schedule N {n}")
+    if params[1] != l:
+        raise FlattenError(f"tripwire: PARAMS L byte {params[1]} != schedule L {l}")
+    if domain != 8 * params[2]:
+        raise FlattenError(
+            f"tripwire: DOMAIN_SIZE {domain} != trace-rows(8) * blowup byte {params[2]}")
+    if pow_threshold != 2 ** (128 - params[3]):
+        raise FlattenError(
+            f"tripwire: POW_THRESHOLD != 2^(128 - pow_bits byte {params[3]})")
+    if len(counter) != n:
+        raise FlattenError(f"tripwire: QUERY_COUNTER length {len(counter)} != N {n}")
+    # get-params must return the constants BY REFERENCE. If its body ever
+    # carried an inline literal, every check above would still pass while the
+    # served params drifted; this closes that hole.
+    gp = by_name["schedule"].defs.get("get-params")
+    if gp is None or gp.kind != "read-only":
+        raise FlattenError("tripwire: schedule.get-params missing or not read-only")
+    gp_form = next(f for f in by_name["schedule"].forms if f.start == gp.start)
+    body = gp_form.children[2:]
+    if len(body) != 1 or not isinstance(body[0], Tup):
+        raise FlattenError(
+            "tripwire: schedule.get-params body is not a single tuple literal")
+    got = {k.text: (v.text if isinstance(v, Token) else "<non-atom>")
+           for k, v in body[0].pairs}
+    want = {"n": "N", "l": "L", "domain-size": "DOMAIN_SIZE"}
+    if got != want:
+        raise FlattenError(
+            f"tripwire: get-params returns {got}, expected direct constant "
+            f"references {want}; an inline literal here would sit outside "
+            "every constant check above")
+
+
 # ---------------- Stage 5: emission ----------------
 
 SIZE_LIMIT = 80 * 1024  # hard read-length headroom assert
@@ -662,6 +722,7 @@ def build(names):
         all_sites = [s for g in gears for s in g.analysis.call_sites]
         check_call_sites(by_name, all_sites)
         check_collisions(gears)
+        check_coupled_constants(by_name)
     return gears, by_name
 
 

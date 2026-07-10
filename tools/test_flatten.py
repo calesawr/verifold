@@ -257,6 +257,76 @@ def test_lint_green_on_real_gears():
     flatten.check_collisions(gears)    # locals/keys vs same-gear top-level names
 
 
+def test_tripwire_green_on_real_gears():
+    _gears, by_name, _sites = _all_gears()
+    flatten.check_coupled_constants(by_name)
+
+
+def test_tripwire_fires_on_diverged_p():
+    _gears, by_name, _sites = _all_gears()
+    by_name["qm31"].defs["P"].value = ("uint", 2147483646)
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "P copies diverged")
+
+
+def test_tripwire_fires_on_diverged_sx():
+    _gears, by_name, _sites = _all_gears()
+    by_name["cdeep"].defs["SX"].value = ("uint", 32769)
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "cair.SX != cdeep.SX")
+
+
+def test_tripwire_fires_on_diverged_domain_size():
+    _gears, by_name, _sites = _all_gears()
+    by_name["query"].defs["DOMAIN_SIZE"].value = ("uint", 32)
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "query.DOMAIN_SIZE != schedule.DOMAIN_SIZE")
+
+
+def test_tripwire_fires_on_params_drift():
+    _gears, by_name, _sites = _all_gears()
+    by_name["schedule"].defs["N"].value = ("uint", 5)
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "PARAMS N byte")
+
+
+def test_tripwire_fires_on_blowup_formula():
+    # flip only the blowup byte (2 -> 3): DOMAIN_SIZE 16 != 8 * 3
+    _gears, by_name, _sites = _all_gears()
+    by_name["driver"].defs["PARAMS"].value = \
+        ("buff", bytes.fromhex("040303080000000a"))
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "blowup byte")
+
+
+def test_tripwire_fires_on_pow_threshold_formula():
+    _gears, by_name, _sites = _all_gears()
+    by_name["schedule"].defs["POW_THRESHOLD"].value = ("uint", 12345)
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "POW_THRESHOLD != 2^(128")
+
+
+def test_tripwire_fires_on_query_counter_length():
+    _gears, by_name, _sites = _all_gears()
+    by_name["schedule"].defs["QUERY_COUNTER"].value = \
+        ("list", [("uint", 0), ("uint", 1), ("uint", 2)])
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "QUERY_COUNTER length 3")
+
+
+def test_tripwire_fires_on_inlined_get_params():
+    # get-params must RETURN the constants, not inline literals; doctor the
+    # parsed body so the n slot carries a literal and the sub-check fires
+    _gears, by_name, _sites = _all_gears()
+    schedule = by_name["schedule"]
+    form = next(f for f in schedule.forms
+                if f.start == schedule.defs["get-params"].start)
+    key, _val = form.children[2].pairs[0]
+    form.children[2].pairs[0] = (key, flatten.Token("ATOM", "u4", 0, 2))
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "get-params returns")
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -283,6 +353,15 @@ TESTS = [
     test_wrap_around_contract_call_fires,
     test_collision_lint_fires,
     test_lint_green_on_real_gears,
+    test_tripwire_green_on_real_gears,
+    test_tripwire_fires_on_diverged_p,
+    test_tripwire_fires_on_diverged_sx,
+    test_tripwire_fires_on_diverged_domain_size,
+    test_tripwire_fires_on_params_drift,
+    test_tripwire_fires_on_blowup_formula,
+    test_tripwire_fires_on_pow_threshold_formula,
+    test_tripwire_fires_on_query_counter_length,
+    test_tripwire_fires_on_inlined_get_params,
 ]
 
 if __name__ == "__main__":
