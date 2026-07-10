@@ -163,6 +163,7 @@ def test_native_whitelist_classifies_all_gears():
     # Stage 2 acceptance: all atoms in all 11 gears classify with the REAL
     # whitelist in force (build() raises on any unclassifiable atom)
     gears, _by, sites = _all_gears()
+    # This assertion was the RED-phase guard and now documents intent.
     assert flatten.NATIVE_WHITELIST is not None
     assert len(sites) == 138
 
@@ -185,6 +186,8 @@ def test_call_census_pinned():
 
 def test_call_census_drift_fires():
     _gears, by_name, sites = _all_gears()
+    # sites[0] is a real qm31 site, so the duplicate passes all per-site gates
+    # and only the census comparison fires.
     expect_error(lambda: flatten.check_call_sites(by_name, sites + [sites[0]]),
                  "census drifted")
 
@@ -203,6 +206,9 @@ def test_definition_order_violation_fires():
     a = flatten.classify_gear(caller)
     by_name = {"field": caller,
                "qm31": flatten.Gear("qm31", flatten.read_gear("qm31"))}
+    # The definition-order gate fires inside the per-site loop, BEFORE the
+    # census comparison, by design — so this synthetic 2-gear call-site list
+    # never reaches the census check.
     expect_error(lambda: flatten.check_call_sites(by_name, a.call_sites),
                  "definition order")
 
