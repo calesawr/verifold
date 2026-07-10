@@ -333,8 +333,16 @@ NATIVE_WHITELIST = {
     "bool", "buff", "int", "optional", "principal", "response",
     "string-ascii", "string-utf8", "uint",
 }
-# Populated by the Stage 3 lint gate (Task 6): environment and state reads.
-FORBIDDEN_ATOMS = set()
+# Environment and state reads would make the merged contract's behavior
+# differ from the gears' (different contract identity, different state).
+# All vacuous today; any future use fails the build with this message.
+FORBIDDEN_ATOMS = {
+    "as-contract", "at-block", "block-height", "burn-block-height",
+    "contract-caller", "get-block-info?", "get-burn-block-info?",
+    "get-stacks-block-info?", "get-tenure-info?", "map-delete", "map-get?",
+    "map-insert", "map-set", "stacks-block-height", "tenure-height",
+    "tx-sender", "tx-sponsor?", "var-get", "var-set",
+}
 # No response wrapper may hold a contract-call?: the direct-call rewrite is
 # only proven for bare read-only values (verified suite-wide precondition).
 WRAP_FORBIDDEN = {"try!", "unwrap!", "unwrap-err!", "match"}
@@ -550,6 +558,22 @@ def check_call_sites(by_name, all_sites):
             "A gear edit changed the cross-contract call set; re-pin deliberately.")
 
 
+def check_collisions(gears):
+    """No local binder or tuple key in gear g may equal a top-level name OF g.
+    Those are exactly the atoms the rename pass targets in g, so this pins the
+    exclusion logic. The scope is per gear on purpose: cross-gear overlap is
+    harmless (renames are per gear) and real today, e.g. the tuple key pow-ok
+    in schedule/driver versus transcript's pow-ok function. With the /
+    separator, prefixed names cannot collide with locals by construction;
+    this lint keeps the un-prefixed space clean anyway (belt and braces)."""
+    for g in gears:
+        bad = (g.analysis.local_names | g.analysis.tuple_keys) & set(g.defs)
+        if bad:
+            raise FlattenError(
+                f"{g.name}: locals/tuple keys collide with this gear's "
+                f"top-level names: {sorted(bad)}")
+
+
 # ---------------- Stage 5: emission ----------------
 
 SIZE_LIMIT = 80 * 1024  # hard read-length headroom assert
@@ -637,6 +661,7 @@ def build(names):
     if set(names) == set(GEAR_ORDER):
         all_sites = [s for g in gears for s in g.analysis.call_sites]
         check_call_sites(by_name, all_sites)
+        check_collisions(gears)
     return gears, by_name
 
 

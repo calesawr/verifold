@@ -213,6 +213,50 @@ def test_definition_order_violation_fires():
                  "definition order")
 
 
+def test_forbidden_define_public_fires():
+    expect_error(lambda: flatten.Gear("field", "(define-public (f) (ok true))"),
+                 "forbidden top-level form define-public")
+
+
+def test_forbidden_data_var_fires():
+    expect_error(lambda: flatten.Gear("field", "(define-data-var n uint u0)"),
+                 "forbidden top-level form define-data-var")
+
+
+def test_forbidden_trait_fires():
+    expect_error(
+        lambda: flatten.Gear("field",
+            "(define-trait t ((f (uint) (response uint uint))))"),
+        "forbidden top-level form define-trait")
+
+
+def test_forbidden_env_atom_fires():
+    expect_error(
+        lambda: flatten.classify_gear(
+            flatten.Gear("field", "(define-read-only (f) tx-sender)")),
+        "forbidden native 'tx-sender'")
+
+
+def test_wrap_around_contract_call_fires():
+    src = ("(define-read-only (f) "
+           "(try! (contract-call? .field m31-add u1 u2)))")
+    expect_error(lambda: flatten.classify_gear(flatten.Gear("qm31", src)),
+                 "try! wraps a contract-call?")
+
+
+def test_collision_lint_fires():
+    g = flatten.Gear("field",
+        "(define-constant one u1)\n"
+        "(define-read-only (f) (let ((one u2)) one))")
+    g.analysis = flatten.classify_gear(g)
+    expect_error(lambda: flatten.check_collisions([g]), "collide")
+
+
+def test_lint_green_on_real_gears():
+    gears, _by, _sites = _all_gears()  # env atoms and wraps checked in classify
+    flatten.check_collisions(gears)    # locals/keys vs same-gear top-level names
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -232,6 +276,13 @@ TESTS = [
     test_call_census_drift_fires,
     test_non_readonly_callee_fires,
     test_definition_order_violation_fires,
+    test_forbidden_define_public_fires,
+    test_forbidden_data_var_fires,
+    test_forbidden_trait_fires,
+    test_forbidden_env_atom_fires,
+    test_wrap_around_contract_call_fires,
+    test_collision_lint_fires,
+    test_lint_green_on_real_gears,
 ]
 
 if __name__ == "__main__":
