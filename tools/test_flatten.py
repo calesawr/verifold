@@ -327,6 +327,22 @@ def test_tripwire_fires_on_inlined_get_params():
                  "get-params returns")
 
 
+def test_tripwire_fires_on_params_l_drift():
+    # L byte (index 1) changed to 4, N unchanged
+    _gears, by_name, _sites = _all_gears()
+    by_name["driver"].defs["PARAMS"].value = ("buff", bytes.fromhex("040402080000000a"))
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "PARAMS L byte")
+
+
+def test_tripwire_fires_on_sy_drift():
+    # SY constant in cdeep must differ from cair's SY
+    _gears, by_name, _sites = _all_gears()
+    by_name["cdeep"].defs["SY"].value = ("uint", 32769)
+    expect_error(lambda: flatten.check_coupled_constants(by_name),
+                 "SY")
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -362,6 +378,8 @@ TESTS = [
     test_tripwire_fires_on_pow_threshold_formula,
     test_tripwire_fires_on_query_counter_length,
     test_tripwire_fires_on_inlined_get_params,
+    test_tripwire_fires_on_params_l_drift,
+    test_tripwire_fires_on_sy_drift,
 ]
 
 if __name__ == "__main__":
