@@ -610,6 +610,8 @@ def list_maxlen(type_node):
     if (isinstance(type_node, Node) and type_node.children
             and isinstance(type_node.children[0], Token)
             and type_node.children[0].text == "list"):
+        if len(type_node.children) < 2:
+            raise FlattenError(f"malformed list type: fewer than 2 children")
         return int(type_node.children[1].text)
     return None
 
@@ -630,6 +632,10 @@ def arg_maxlen(arg, enclosing_params):
 
 
 def check_list_covariance(by_name, all_sites):
+    """Check list max-len covariance: for each call argument with an inferable
+    max-len (literal or parameter reference), verify it does not exceed the
+    callee's declared max-len. Checked arguments count toward checked; arguments
+    with non-inferable max-len defer to clarinet."""
     checked = skipped = 0
     for s in all_sites:
         callee = by_name[s.callee].defs[s.fn]
