@@ -41,6 +41,13 @@ consumer rejects `/`: set `SEPARATOR = "--"` in tools/flatten.py, regenerate;
 the adapter follows the manifest automatically. The devnet smoke test exists
 to surface such a consumer inside M1.
 
+DEFERRAL (2026-07-10): Devnet smoke test deferred. Docker is unavailable in
+the WSL2 environment and cannot be provisioned at this time. The `/` separator
+is verified by `clarinet check` (Task 18) and simnet tests (Tasks 17 and 19).
+Smoke must run on a provisioned Docker environment before any M2 deploy
+decision. Follow-up task required: re-run Task 20 devnet smoke after Docker
+is available.
+
 ## Production profile (deploy time only)
 
     python3 tools/flatten.py --production
