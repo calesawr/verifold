@@ -432,6 +432,11 @@
         "flat": "fri/fold-layer-step",
         "kind": "private"
       },
+      "fold-layer-step-hint": {
+        "arity": 2,
+        "flat": "fri/fold-layer-step-hint",
+        "kind": "private"
+      },
       "fri-final-ok": {
         "arity": 3,
         "flat": "fri/fri-final-ok",
@@ -447,9 +452,19 @@
         "flat": "fri/fri-fold-down",
         "kind": "read-only"
       },
+      "fri-fold-down-hint": {
+        "arity": 2,
+        "flat": "fri/fri-fold-down-hint",
+        "kind": "read-only"
+      },
       "fri-fold-step": {
         "arity": 4,
         "flat": "fri/fri-fold-step",
+        "kind": "read-only"
+      },
+      "fri-fold-step-hint": {
+        "arity": 5,
+        "flat": "fri/fri-fold-step-hint",
         "kind": "read-only"
       },
       "pi-x": {
@@ -711,7 +726,7 @@
     },
     "fri": {
       "path": "contracts/fri.clar",
-      "sha256": "72be4f5c0738034adc78b80686df76ce5b2a7f0cc66f7b56bec8118120781f38"
+      "sha256": "e80abbeb58b9b262f47c72710faf2f8bbb99bd584355d0270beef8dabf4b4d78"
     },
     "merkle": {
       "path": "contracts/merkle.clar",

@@ -10,7 +10,7 @@
 ;;   842c7c1348d576b7fb2267bd9e09a23b55021123ee4425e827248415b17faa66  contracts/cdeep.clar
 ;;   78c462c191b997d4027221fd9191bab1910ca5eb6fbeba97ff16d40d895bfec5  contracts/merkle.clar
 ;;   3026a073df4adc7ed590c0e1437d1dda15b7451e27e6785931de74003a3126c6  contracts/commit.clar
-;;   72be4f5c0738034adc78b80686df76ce5b2a7f0cc66f7b56bec8118120781f38  contracts/fri.clar
+;;   e80abbeb58b9b262f47c72710faf2f8bbb99bd584355d0270beef8dabf4b4d78  contracts/fri.clar
 ;;   084ca5ba836c304a40d26458b2eee07bcbb761fd50b21531040503cba7c7ca38  contracts/query.clar
 ;;   77070c00254c1acc8546cc020f87c4bbe037a50768c192ee351c2883b1d726f4  contracts/transcript.clar
 ;;   abc7158b532d66b54e6a6d2afcc82882e2ecb37e6f3945bf28fbb15c893229ac  contracts/schedule.clar
@@ -376,6 +376,29 @@
                        beta: { c0: uint, c1: uint, c2: uint, c3: uint }, v-is-right: bool }))
     (final { c0: uint, c1: uint, c2: uint, c3: uint }))
   (qm31/qm31-eq (fri/fri-fold-down v0 layers) final))
+(define-read-only (fri/fri-fold-step-hint
+    (a { c0: uint, c1: uint, c2: uint, c3: uint })
+    (b { c0: uint, c1: uint, c2: uint, c3: uint })
+    (x uint)
+    (hint uint)
+    (beta { c0: uint, c1: uint, c2: uint, c3: uint }))
+  (begin
+    (unwrap-panic (if (is-eq (field/m31-mul x hint) u1) (some true) none))
+    (let ((f0 (qm31/qm31-add a b))
+          (f1 (qm31/qm31-mul-m31 (qm31/qm31-sub a b) hint)))
+      (qm31/qm31-add f0 (qm31/qm31-mul beta f1)))))
+(define-private (fri/fold-layer-step-hint
+    (lyr { sibling: { c0: uint, c1: uint, c2: uint, c3: uint }, x: uint, hint: uint,
+           beta: { c0: uint, c1: uint, c2: uint, c3: uint }, v-is-right: bool })
+    (v { c0: uint, c1: uint, c2: uint, c3: uint }))
+  (if (get v-is-right lyr)
+      (fri/fri-fold-step-hint (get sibling lyr) v (get x lyr) (get hint lyr) (get beta lyr))
+      (fri/fri-fold-step-hint v (get sibling lyr) (get x lyr) (get hint lyr) (get beta lyr))))
+(define-read-only (fri/fri-fold-down-hint
+    (v0 { c0: uint, c1: uint, c2: uint, c3: uint })
+    (layers (list 32 { sibling: { c0: uint, c1: uint, c2: uint, c3: uint }, x: uint, hint: uint,
+                       beta: { c0: uint, c1: uint, c2: uint, c3: uint }, v-is-right: bool })))
+  (fold fri/fold-layer-step-hint layers v0))
 ;; ========================= gear: query (contracts/query.clar) =========================
 (define-constant query/P u2147483647)
 (define-constant query/DOMAIN_SIZE u16)

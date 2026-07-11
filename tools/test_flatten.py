@@ -48,7 +48,7 @@ def test_symbol_tables_all_gears():
     for name in flatten.GEAR_ORDER:
         g = flatten.Gear(name, flatten.read_gear(name))
         total += len(g.defs)
-    assert total == 134, total
+    assert total == 137, total
 
 
 def test_constant_values():
@@ -165,7 +165,7 @@ def test_native_whitelist_classifies_all_gears():
     gears, _by, sites = _all_gears()
     # This assertion was the RED-phase guard and now documents intent.
     assert flatten.NATIVE_WHITELIST is not None
-    assert len(sites) == 138
+    assert len(sites) == 144
 
 
 def test_unclassifiable_atom_is_error():
@@ -409,11 +409,11 @@ def test_manifest_covers_every_definition():
     m = flatten.build_manifest(gears)
     total = sum(len(v) for v in m["functions"].values()) \
         + sum(len(v) for v in m["constants"].values())
-    assert total == 134, total
+    assert total == 137, total
     # Stage 4 acceptance: emitted top-level names are globally unique
     flats = [v["flat"] for table in (m["functions"], m["constants"])
              for gear_map in table.values() for v in gear_map.values()]
-    assert len(set(flats)) == len(flats) == 134
+    assert len(set(flats)) == len(flats) == 137
     assert m["separator"] == "/"
     assert m["gearOrder"] == flatten.GEAR_ORDER
     assert set(m["inputs"].keys()) == set(flatten.GEAR_ORDER)

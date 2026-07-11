@@ -90,3 +90,40 @@
                        beta: { c0: uint, c1: uint, c2: uint, c3: uint }, v-is-right: bool }))
     (final { c0: uint, c1: uint, c2: uint, c3: uint }))
   (contract-call? .qm31 qm31-eq (fri-fold-down v0 layers) final))
+
+;; ---- wire v2 (M2): hint-checked fold ----
+;; The prover transmits hint = x^-1 mod p per layer; the verifier checks
+;; x * hint == 1 mod p (one multiply plus one equality, replacing the 31-step
+;; Fermat inversion) and multiplies by the hint. A wrong hint ABORTS via the
+;; house reject-by-abort idiom. x = 0 can never satisfy the check, so the
+;; fri-fold-step zero-twiddle abort property is preserved. A non-canonical
+;; hint (hint + k*p) yields the same folded value (qm31-mul-m31 reduces), so
+;; hint malleability cannot change any checked value.
+(define-read-only (fri-fold-step-hint
+    (a { c0: uint, c1: uint, c2: uint, c3: uint })
+    (b { c0: uint, c1: uint, c2: uint, c3: uint })
+    (x uint)
+    (hint uint)
+    (beta { c0: uint, c1: uint, c2: uint, c3: uint }))
+  (begin
+    (unwrap-panic (if (is-eq (contract-call? .field m31-mul x hint) u1) (some true) none))
+    (let ((f0 (contract-call? .qm31 qm31-add a b))
+          (f1 (contract-call? .qm31 qm31-mul-m31 (contract-call? .qm31 qm31-sub a b) hint)))
+      (contract-call? .qm31 qm31-add f0 (contract-call? .qm31 qm31-mul beta f1)))))
+
+;; mirrors fold-layer-step with the hint field threaded through
+(define-private (fold-layer-step-hint
+    (lyr { sibling: { c0: uint, c1: uint, c2: uint, c3: uint }, x: uint, hint: uint,
+           beta: { c0: uint, c1: uint, c2: uint, c3: uint }, v-is-right: bool })
+    (v { c0: uint, c1: uint, c2: uint, c3: uint }))
+  (if (get v-is-right lyr)
+      (fri-fold-step-hint (get sibling lyr) v (get x lyr) (get hint lyr) (get beta lyr))
+      (fri-fold-step-hint v (get sibling lyr) (get x lyr) (get hint lyr) (get beta lyr))))
+
+;; the same affine fold as fri-fold-down, twiddle inverses supplied as
+;; checked hints (proof wire format v2; the M2 driver consumes this per layer)
+(define-read-only (fri-fold-down-hint
+    (v0 { c0: uint, c1: uint, c2: uint, c3: uint })
+    (layers (list 32 { sibling: { c0: uint, c1: uint, c2: uint, c3: uint }, x: uint, hint: uint,
+                       beta: { c0: uint, c1: uint, c2: uint, c3: uint }, v-is-right: bool })))
+  (fold fold-layer-step-hint layers v0))

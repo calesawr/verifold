@@ -564,11 +564,12 @@ def apply_edits(src, edits):
 
 # ---------------- Stage 2 acceptance: the pinned call census ----------------
 
-# 138 sites by callee, recounted by the judges and re-verified against the
-# working tree at plan time. Any future gear edit that adds or removes a
+# 144 sites by callee, recounted by the judges and re-verified against the
+# working tree at plan time; re-pinned in M2 Task 11 (fri hint fold adds
+# 5 .qm31 and 1 .field sites). Any future gear edit that adds or removes a
 # cross-contract call must re-pin this table DELIBERATELY.
-PINNED_CALL_BREAKDOWN = {"qm31": 90, "transcript": 19, "commit": 9,
-                         "field": 5, "query": 4, "merkle": 4, "fri": 2,
+PINNED_CALL_BREAKDOWN = {"qm31": 95, "transcript": 19, "commit": 9,
+                         "field": 6, "query": 4, "merkle": 4, "fri": 2,
                          "cair": 2, "schedule": 2, "cdeep": 1}
 
 
