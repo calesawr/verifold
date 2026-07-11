@@ -19,3 +19,4 @@ handoff.md
 *Zone.Identifier
 # Local-only archive of deprecated/cost contracts (kept out of the repo)
 local-archive/
+contracts/verifold-flat-production.clar

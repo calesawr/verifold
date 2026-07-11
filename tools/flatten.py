@@ -853,6 +853,15 @@ def emit_flat(gears, extra=None):
     return flat
 
 
+# ---------------- production emission profile ----------------
+
+# Test-only entry points demoted to private at deploy time. driver.clar's
+# verify-query is NOT STANDALONE SOUND (caller-supplied env, testability
+# only); the equivalence artifact keeps it read-only because the all-16-q
+# differential test calls it directly.
+PRODUCTION_DEMOTE = {("driver", "verify-query")}
+
+
 # ---------------- Layer 4: the mutation smoke hook ----------------
 
 def mutation_edit(by_name, spec):
@@ -952,6 +961,14 @@ def main(argv):
         gname, edit = mutation_edit(by_name, opts["mutate"])
         extra.setdefault(gname, []).append(edit)
         print(f"MUTATED ARTIFACT (Layer 4 smoke only, do NOT commit): {opts['mutate']}")
+    if opts["production"]:
+        for gname, fname in sorted(PRODUCTION_DEMOTE):
+            d = by_name[gname].defs[fname]
+            extra.setdefault(gname, []).append(
+                (d.head_tok.start, d.head_tok.end, "define-private"))
+        if not opts["out_given"]:
+            opts["out"] = os.path.join(REPO_ROOT, "contracts",
+                                       "verifold-flat-production.clar")
     flat = emit_flat(gears, extra)
     with open(opts["out"], "w", encoding="utf-8") as fh:
         fh.write(flat)

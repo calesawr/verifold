@@ -461,6 +461,19 @@ def test_mutation_edit_unknown_gear_raises_flatten_error():
                  "unknown gear")
 
 
+def test_production_demotes_verify_query():
+    gears, by_name = flatten.build(list(flatten.GEAR_ORDER))
+    extra = {}
+    for gname, fname in sorted(flatten.PRODUCTION_DEMOTE):
+        d = by_name[gname].defs[fname]
+        extra.setdefault(gname, []).append(
+            (d.head_tok.start, d.head_tok.end, "define-private"))
+    flat = flatten.emit_flat(gears, extra)
+    assert "(define-private (driver/verify-query" in flat
+    assert "(define-read-only (driver/verify-query" not in flat
+    assert "(define-read-only (driver/verify" in flat  # the sound entry stays public
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -510,6 +523,7 @@ TESTS = [
     test_manifest_m2_spans_resolve,
     test_mutation_edit_flips_only_the_target_literal,
     test_mutation_edit_unknown_gear_raises_flatten_error,
+    test_production_demotes_verify_query,
 ]
 
 if __name__ == "__main__":
