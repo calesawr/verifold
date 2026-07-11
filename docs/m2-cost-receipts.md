@@ -204,3 +204,37 @@ escape hatch the spec calls for.
 No candidate failed a ceiling, so the founder-decision-gate fallback
 (Step 12's last sentence) does not apply; PRODUCTION_POINT is pinned to
 CAND_A below.
+
+## Task 7: production proving run (rust-proofs-full.json)
+
+Command: cargo run --release --bin prove -- --point full (in interop/; prebuilt with cargo build --release so the timing excludes compilation).
+Wall time is the bash time builtin; the fixture is byte-identical across reruns (cmp verified).
+
+```
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running `target/release/prove --point full`
+point: log_trace=13 log_blowup=4 n_queries=23 pow_bits=8 air_id=11
+proved pub="": queries [87052, 70246, 10410, 2908, 33123, 124508, 44054, 23295, 102630, 1893, 95648, 80431, 43873, 94558, 25192, 17821, 905, 39815, 26421, 57841, 12724, 61472, 101719]
+proved pub="interop-1": queries [92876, 62260, 111913, 51244, 102525, 46893, 40718, 15570, 117242, 107818, 83089, 106504, 28175, 14247, 89327, 100477, 46046, 26959, 66746, 130297, 40182, 29697, 65959]
+proved pub="interop-2": queries [119697, 43562, 68091, 20291, 45804, 71185, 101618, 24987, 17248, 47730, 53149, 99490, 116618, 11487, 44961, 71065, 7171, 94965, 32286, 3914, 130271, 13672, 42265]
+wrote fixtures/rust-proofs-full.json
+
+real	0m0.618s
+user	0m0.595s
+sys	0m0.024s
+```
+
+Fixture size on disk:
+
+```
+1216179 interop/fixtures/rust-proofs-full.json
+```
+
+Per-proof Clarity serialized-argument estimate (tools/proof_size.py; kebab-case name model):
+
+```
+pub=''                       total-args=  195954 bytes; largest arg bundles = 194585 bytes; margin to 1MB cap = 853991 bytes
+pub='696e7465726f702d31'     total-args=  195963 bytes; largest arg bundles = 194585 bytes; margin to 1MB cap = 853991 bytes
+pub='696e7465726f702d32'     total-args=  195963 bytes; largest arg bundles = 194585 bytes; margin to 1MB cap = 853991 bytes
+OK: every argument sits under the 1048576 byte Clarity value cap
+```

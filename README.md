@@ -46,8 +46,9 @@ The Rust cross-check (requires the nightly toolchain pinned in `interop/rust-too
 
 ```sh
 cd interop
-cargo run               # the 16-check Stwo cross-validation harness
-cargo run --bin prove   # regenerate the Rust-proven fixtures verified by the Clarity contract
+cargo run                                          # the Stwo cross-validation harness (toy + production points)
+cargo run --bin prove                              # regenerate the toy fixtures (fixtures/rust-proofs.json)
+cargo run --release --bin prove -- --point full    # regenerate the production fixtures (fixtures/rust-proofs-full.json)
 ```
 
 ## Design in one paragraph
