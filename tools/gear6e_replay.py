@@ -660,6 +660,7 @@ def run_full_replay():
         # ---- FRI: roots, betas, the complete fold chain with OWN twiddles ----
         p0_lv = build_tree([leaf(v) for v in P0c])
         assert p0_lv[-1][0].hex() == f["friRoots"][0], "fri root 0"
+        own_fri_roots = [p0_lv[-1][0].hex()]
         beta, st = squeeze_qm31(absorb_root(st, p0_lv[-1][0]))
         betas = [beta]
         tw = batch_minv([fs_pts[2 * k][1] for k in range(half)])
@@ -668,6 +669,7 @@ def run_full_replay():
         for l in range(1, n_layers):
             lv = build_tree([leaf(v) for v in curL])
             assert lv[-1][0].hex() == f["friRoots"][l], f"fri root {l}"
+            own_fri_roots.append(lv[-1][0].hex())
             beta, st = squeeze_qm31(absorb_root(st, lv[-1][0]))
             betas.append(beta)
             line_layers.append(curL)
@@ -677,11 +679,11 @@ def run_full_replay():
                              for mm in range(m_)])
             curL = [fold_i(curL[2 * mm], curL[2 * mm + 1], tw[mm], beta)
                     for mm in range(m_)]
-        final = tuple(f["final"])
-        assert len(curL) == 2 and curL[0] == curL[1] == final, "constant terminal == final"
+        own_final = curL[0]
+        assert len(curL) == 2 and curL[0] == curL[1] == tuple(f["final"]), "constant terminal == final"
 
         # ---- grind + query draw ----
-        s_fin = absorb_qm31(st, final)
+        s_fin = absorb_qm31(st, own_final)
         nonce = bytes.fromhex(f["nonce"])
         assert pow_val(s_fin, nonce) < dv["POW_THRESHOLD"], "pow grind"
         st2 = absorb_nonce(s_fin, nonce)
@@ -720,11 +722,11 @@ def run_full_replay():
             kat = {
                 "point": "PRODUCTION_POINT", "pub": f["pub"],
                 "ctx": (DOMAIN_LABEL + bytes([0x02]) + PARAMSf + sha(b"")).hex(),
-                "traceRoot": f["traceRoot"], "compRoot": f["compRoot"],
+                "traceRoot": trace_lv[-1][0].hex(), "compRoot": comp_lv[-1][0].hex(),
                 "alpha": alpha, "zfelt": zfelt, "zx": Zood[0], "zy": Zood[1],
                 "Tz": T0z, "Tgz": T1z, "Tg2z": T2z, "Czs": Czs,
-                "gamma": gamma, "friRoots": f["friRoots"], "betas": betas,
-                "final": final, "nonce": f["nonce"], "queryIndices": qidx,
+                "gamma": gamma, "friRoots": own_fri_roots, "betas": betas,
+                "final": own_final, "nonce": f["nonce"], "queryIndices": qidx,
             }
 
     with open("tools/kats-full.json", "w") as fh:
