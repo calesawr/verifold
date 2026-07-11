@@ -45,11 +45,11 @@ n_queries * log2(blowup) + pow_bits = 23 * 4 + 8 = 100; the QM31
 out of domain sampling terms (~2^-124 each) and the sha256 collision terms
 (~2^-128) cap the accounting far above the target and do not bind.
 
-Note on the cap itself: ood_term and transcript_term are combined as a
-minimum rather than as an error sum, the more conservative reading; at this
-point that choice differs from a full error-sum combination by about
-0.00001 bits, far below the target margin and not enough to change any
-figure stated in this memo.
+Note on the cap itself: the terms are combined as a minimum rather than as
+an error sum. A full error-sum combination (2^-100 + 2^-124 + 2^-128) lowers
+the headline by about 0.0000001 bits (roughly (2^-24 + 2^-28) / ln 2), far
+below the target margin and not enough to change any figure stated in this
+memo.
 
 ## Proven (Johnson bound) accounting
 
