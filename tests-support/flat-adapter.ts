@@ -23,7 +23,7 @@
 // file's environment setup, so the wrap re-applies per file in beforeEach,
 // keyed on a __verifoldWrapped probe that only the wrapper answers.
 import { readFileSync } from "node:fs";
-import { beforeEach } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect } from "vitest";
 
 const FLAT = process.env.VERIFOLD_FLAT === "1";
 
@@ -51,18 +51,37 @@ function lookup(contract: string, fn: string): ManifestFn {
   return entry;
 }
 
+let redirected = 0;
+let atFileStart = 0;
+// per-module-instance guard: with isolate:false + forks pool, the environment
+// sets globalThis.simnet ONCE and it persists across files.  The setupFile
+// module is RE-IMPORTED for each file (invalidated by the runner before
+// runSetupFiles), so each file gets fresh module-scope variables.  We must
+// re-wrap even when globalThis.simnet is already a proxy from a previous file,
+// because that proxy's closure increments the *previous* file's `redirected`.
+let wrapped = false;
+
 function wrapSimnet(sim: any): any {
-  // capturing the trap-made closure once is safe: the underlying session
-  // method is never overwritten, so orig always reaches the real wasm session
-  const orig = sim.callReadOnlyFn;
+  // unwrap a stale proxy from a prior file so orig reaches the real wasm session
+  const base = (sim as any).__verifoldBase ?? sim;
+  const orig = base.callReadOnlyFn;
   const patched = (contract: string, fn: string, args: any[], sender: string) => {
     const entry = lookup(contract, fn);
+    redirected += 1;
     return orig(loadManifest().contract, entry.flat, args, sender);
   };
-  return new Proxy(sim, {
+  // anti-vacuity: the suite is read-only end to end; any other entry point
+  // appearing under flat mode means the equivalence claim is off the rails
+  const forbidden = (name: string) => () => {
+    throw new Error(`flat-adapter: ${name} is forbidden in flat mode`);
+  };
+  return new Proxy(base, {
     get(target, prop, receiver) {
       if (prop === "__verifoldWrapped") return true;
+      if (prop === "__verifoldBase") return base;
       if (prop === "callReadOnlyFn") return patched;
+      if (prop === "callPublicFn") return forbidden("callPublicFn");
+      if (prop === "deployContract") return forbidden("deployContract");
       return Reflect.get(target, prop, receiver);
     },
   });
@@ -70,9 +89,22 @@ function wrapSimnet(sim: any): any {
 
 if (FLAT) {
   beforeEach(() => {
+    if (wrapped) return; // this module instance has already wrapped globalThis.simnet
     const sim: any = (globalThis as any).simnet;
     if (!sim) throw new Error("flat-adapter: simnet global not initialized");
-    if (sim.__verifoldWrapped) return; // this file's global is already wrapped
     (globalThis as any).simnet = wrapSimnet(sim);
+    wrapped = true;
+  });
+
+  beforeAll(() => {
+    atFileStart = redirected; // per-file snapshot (isolate: false shares state)
+  });
+
+  afterAll(() => {
+    // every test file in this suite makes contract calls; zero redirected
+    // calls means the redirect never went live for this file
+    expect(redirected - atFileStart,
+      `flat-adapter: zero redirected calls in ${expect.getState().testPath}`)
+      .toBeGreaterThan(0);
   });
 }
