@@ -20,7 +20,15 @@ TASK9_SPANS = {
     ("cdeep", "SX"), ("cdeep", "SY"),
     ("driver", "PARAMS"),
 }
-EXPECTED_IMPLEMENTED = set(TASK9_SPANS)
+TASK10_SPANS = {
+    ("query", "BITREV4"), ("query", "bitrev"),
+    ("cair", "SEL_A"), ("cair", "SEL_B"), ("cair", "SEL_C"),
+    ("cair", "B01_A"), ("cair", "B01_B"), ("cair", "B01_C"),
+    ("cair", "coset-vanish"), ("cair", "mask-point"),
+    ("cdeep", "deep-row"),
+    ("schedule", "fri-beta-step"), ("schedule", "query-idx-step"),
+}
+EXPECTED_IMPLEMENTED = TASK9_SPANS | TASK10_SPANS
 
 
 def manifest_spans():
@@ -96,12 +104,80 @@ def test_full_renders_parse_at_fallback_point():
         assert _parses(text), (gear, name)
 
 
+def test_full_bitrev_is_computed_with_range_guard():
+    d = params.derived(params.PRODUCTION_POINT)
+    text = spans.render_span("query", "bitrev", params.PRODUCTION_POINT).decode()
+    assert "(define-private (bitrev-step" in text
+    assert "(< q DOMAIN_SIZE)" in text          # the explicit range guard
+    assert "element-at?" not in text            # the lookup is gone
+    assert text.count(" u") >= d["LOG_DOMAIN"]  # LOG_DOMAIN fold entries
+    lookup = spans.render_span("query", "BITREV4", params.PRODUCTION_POINT).decode()
+    assert lookup.startswith(";;") and "\n" not in lookup  # absorbed: comment only
+
+
+def test_full_bitrev_fold_emulates_bit_reversal():
+    # emulate the generated Clarity fold in Python and pin it to bit reversal
+    d = params.derived(params.PRODUCTION_POINT)
+    bits = d["LOG_DOMAIN"]
+
+    def emulate(q):
+        r = 0
+        for _ in range(bits):
+            r = r * 2 + (q % 2)
+            q = q // 2
+        return r
+
+    def bitrev(i):
+        return int(format(i, f"0{bits}b")[::-1], 2)
+
+    for q in (0, 1, 2, 3, 5, 12345, d["DOMAIN_SIZE"] - 1):
+        assert emulate(q) == bitrev(q), q
+    # and at the toy point the emulation reproduces the pinned lookup table
+    toy_table = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15]
+    def emulate4(q):
+        r = 0
+        for _ in range(4):
+            r = r * 2 + (q % 2)
+            q = q // 2
+        return r
+    assert [emulate4(i) for i in range(16)] == toy_table
+
+
+def test_full_structural_shapes():
+    point = params.PRODUCTION_POINT
+    d = params.derived(point)
+    sel = spans.render_span("cair", "SEL_A", point).decode()
+    assert sel == f"(define-constant SEL_A u{d['SEL']['A']})"
+    b01 = spans.render_span("cair", "B01_B", point).decode()
+    assert b01 == f"(define-constant B01_B u{d['B01']['B']})"
+    cv = spans.render_span("cair", "coset-vanish", point).decode()
+    assert cv.count("(qpi ") == point["log_trace"] - 1
+    cap = spans.list_cap(d)
+    beta = spans.render_span("schedule", "fri-beta-step", point).decode()
+    assert f"(list {cap} {{ c0: uint" in beta and f"u{cap}))" in beta
+    idx = spans.render_span("schedule", "query-idx-step", point).decode()
+    assert f"(list {cap} uint)" in idx and f"u{cap}))" in idx
+
+
+def test_mask_and_deep_render_identically_at_both_points():
+    # their shape follows the AIR mask (unchanged in M2); the point enters
+    # only through the SX/SY constants they reference by name
+    for gear, name in (("cair", "mask-point"), ("cdeep", "deep-row")):
+        toy = spans.render_span(gear, name, params.TOY_POINT)
+        full = spans.render_span(gear, name, params.PRODUCTION_POINT)
+        assert toy == full, (gear, name)
+
+
 TESTS = [
     test_registry_covers_exactly_the_expected_spans,
     test_unimplemented_span_raises_not_implemented,
     test_toy_renders_byte_identical_to_gear_spans,
     test_full_renders_parse_and_carry_oracle_values,
     test_full_renders_parse_at_fallback_point,
+    test_full_bitrev_is_computed_with_range_guard,
+    test_full_bitrev_fold_emulates_bit_reversal,
+    test_full_structural_shapes,
+    test_mask_and_deep_render_identically_at_both_points,
 ]
 
 if __name__ == "__main__":

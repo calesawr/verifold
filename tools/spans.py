@@ -143,3 +143,127 @@ TEMPLATES[("cdeep", "SY")] = _sy
 @template("driver", "PARAMS")
 def _d_params(point, d):
     return f"(define-constant PARAMS 0x{d['PARAMS'].hex()})"
+
+
+# ---------------- Task 10: computed structures ----------------
+
+# Toy pins for spans whose full-point shape DIVERGES from (or must equal)
+# the checked-in gear form. The pinned sha256 is of the exact gear slice at
+# the definition extents. Editing such a gear span fails here loudly; re-pin
+# ONLY together with a review of the full-point template.
+TOY_PIN_SHA256 = {
+    ("cair", "mask-point"):
+        "ea7060861e9612d391dda9bc2b1c4428bb6ca0fb0d29f0aa5c7648ae043b0e90",
+    ("cdeep", "deep-row"):
+        "c32022d0006810777f41f9db5e2ae4d0a1000007f05e76095ec82fd2c31e3fdc",
+}
+
+
+def _toy_slice(gear, name):
+    """The exact checked-in gear bytes of one definition, sha256-pinned."""
+    import flatten
+    g = flatten.Gear(gear, flatten.read_gear(gear))
+    d = g.defs[name]
+    text = g.src[d.start:d.end]
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    want = TOY_PIN_SHA256[(gear, name)]
+    if digest != want:
+        raise RuntimeError(
+            f"{gear}/{name}: gear span drifted (sha256 {digest}, pinned "
+            f"{want}); re-pin ONLY after reviewing the full-point template")
+    return text
+
+
+def _sel(letter):
+    def render(point, d):
+        return f"(define-constant SEL_{letter} u{d['SEL'][letter]})"
+    return render
+
+
+def _b01(letter):
+    def render(point, d):
+        return f"(define-constant B01_{letter} u{d['B01'][letter]})"
+    return render
+
+
+for _l in ("A", "B", "C"):
+    TEMPLATES[("cair", "SEL_" + _l)] = _sel(_l)
+    TEMPLATES[("cair", "B01_" + _l)] = _b01(_l)
+
+
+@template("query", "BITREV4")
+def _q_bitrev_table(point, d):
+    if point == params.TOY_POINT:
+        bits = d["LOG_DOMAIN"]
+        table = [int(format(i, f"0{bits}b")[::-1], 2)
+                 for i in range(d["DOMAIN_SIZE"])]
+        return f"(define-constant BITREV4 {_ulist(table)})"
+    # a 2^LOG_DOMAIN-entry table is infeasible at production size; the lookup
+    # is absorbed into the computed bitrev below (see query/bitrev)
+    return (";; BITREV4 lookup absorbed at this point: bitrev is computed "
+            "over LOG_DOMAIN bits (see bitrev)")
+
+
+_BITREV_TOY = """(define-read-only (bitrev (q uint))
+  (unwrap-panic (element-at? BITREV4 q)))"""
+
+
+@template("query", "bitrev")
+def _q_bitrev_fn(point, d):
+    if point == params.TOY_POINT:
+        return _BITREV_TOY
+    bits = d["LOG_DOMAIN"]
+    counter = _ulist(range(bits))
+    return f"""(define-private (bitrev-step (i uint) (st {{ q: uint, r: uint }}))
+  {{ q: (/ (get q st) u2),
+    r: (+ (* (get r st) u2) (mod (get q st) u2)) }})
+(define-read-only (bitrev (q uint))
+  (begin
+    (unwrap-panic (if (< q DOMAIN_SIZE) (some true) none))
+    (get r (fold bitrev-step {counter} {{ q: q, r: u0 }}))))"""
+
+
+@template("cair", "coset-vanish")
+def _c_coset_vanish(point, d):
+    k = point["log_trace"] - 1  # log2(TRACE_ROWS) - 1 lifted qpi doublings
+    body = "(qpi " * k + "zx" + ")" * k
+    return (f"(define-read-only (coset-vanish "
+            f"(zx {{ c0: uint, c1: uint, c2: uint, c3: uint }}))\n"
+            f"  {body})")
+
+
+@template("cair", "mask-point")
+def _c_mask_point(point, d):
+    # shape follows the 3-point AIR mask, unchanged in M2; SX/SY are
+    # referenced by NAME, so the point enters via the Task 9 constant spans
+    return _toy_slice("cair", "mask-point")
+
+
+@template("cdeep", "deep-row")
+def _cd_deep_row(point, d):
+    # gamma powers g^0..g^6 and the 3 conjugate-pair batches follow the AIR
+    # mask and the 4 comp coordinates, both unchanged in M2
+    return _toy_slice("cdeep", "deep-row")
+
+
+@template("schedule", "fri-beta-step")
+def _s_fri_beta_step(point, d):
+    cap = list_cap(d)
+    return f"""(define-private (fri-beta-step
+    (root (buff 32))
+    (acc {{ state: (buff 32), betas: (list {cap} {{ c0: uint, c1: uint, c2: uint, c3: uint }}) }}))
+  (let ((b (contract-call? .transcript squeeze-qm31 (contract-call? .transcript absorb-root (get state acc) root))))
+    {{ state: (get state b),
+      betas: (unwrap-panic (as-max-len? (append (get betas acc)
+                {{ c0: (get c0 b), c1: (get c1 b), c2: (get c2 b), c3: (get c3 b) }}) u{cap})) }}))"""
+
+
+@template("schedule", "query-idx-step")
+def _s_query_idx_step(point, d):
+    cap = list_cap(d)
+    return f"""(define-private (query-idx-step
+    (i uint)
+    (acc {{ state: (buff 32), idx: (list {cap} uint) }}))
+  (let ((r (contract-call? .transcript squeeze-m31 (get state acc))))
+    {{ state: (get state r),
+      idx: (unwrap-panic (as-max-len? (append (get idx acc) (mod (get v r) DOMAIN_SIZE)) u{cap})) }}))"""
