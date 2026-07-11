@@ -297,6 +297,8 @@ this verifier is checked against.
 
 ---
 
-*Draft for discussion. An end-to-end proof check works at demonstration parameters; no "secure" claim is made
-pending raised security parameters, independent expert review, and audit. Cost figures are point-in-time
-under the current Stacks cost model.*
+*Draft for discussion. An end-to-end proof check works at production security parameters, about 100 bits
+under the standard, unproven capacity conjecture (54 proven; docs/m2-soundness.md), with measured costs
+published (docs/m2-cost-exhibit.md). Unaudited and not deployed to any public network; no "secure" claim is
+made pending independent expert review and audit. Cost figures are point-in-time under the current Stacks
+cost model.*

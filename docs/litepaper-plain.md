@@ -249,6 +249,7 @@ across the ecosystem, a later, community-led step rather than a precondition.
 
 ---
 
-*Draft for discussion. An end-to-end proof check works at demonstration settings; no security claim is
-made pending raised settings, independent expert review, and audit. A more technical edition of this
-litepaper is available separately.*
+*Draft for discussion. An end-to-end proof check works at production security settings, about 100 bits
+under a standard conjecture that is not proven (54 proven bits), with measured costs published. The code
+is unaudited and not deployed to any public network; no security claim is made pending independent expert
+review and audit. A more technical edition of this litepaper is available separately.*
