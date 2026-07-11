@@ -88,6 +88,16 @@ soundness target). That is exactly what we are asking about.
    ~100-bit security target on a trace of size ~2^n (we can specify n), what query count / blowup /
    grinding do you recommend, and does the ~124-bit QM31 make the commit-phase error negligible?
 
+   **Resolved 2026 M2 (self-answered, still open to expert challenge):** pinned at
+   PRODUCTION_POINT in tools/params.py: log_trace 13, blowup 2^4, 23 queries,
+   8 grinding bits, giving 100 conjectured bits (capacity accounting,
+   ethSTARK Conjecture 1 style) and 54.0 proven (Johnson-bound) bits, both
+   itemized term by term in docs/m2-soundness.md and computed by tools/soundness.py.
+   We target the conjectured figure and always publish the proven figure alongside.
+   On the sub-question: yes by our arithmetic, the ~2^-124 QM31 commit-phase terms
+   and the 2^-128 sha256 terms sit far above the 96-bit target and do not bind; the
+   query/grinding terms dominate (the memo shows every term).
+
 4. **Opening binding (obligation C) + final layer.** We built the fold-consistency and final low-degree
    checks and, in gear 6d-i, a Merkle-bound opening with a **default** QM31-leaf encoding: the canonical
    16-byte form (`c0` first, each limb 4-byte big-endian, byte-identical to our transcript `absorb-qm31`),
@@ -262,6 +272,17 @@ Open questions (each is also flagged inline in the relevant contract's header co
 - **DRIVER-9**: toy soundness arithmetic: ~2^-4 FRI error per query set; queries depend on the
   ground nonce, so a far-column forgery costs ~2^12 hashes. What (n_queries, pow_bits, dedup)
   do you want for even a testnet demo? Should PARAMS grow a min-queries field?
+
+  **Resolved 2026 M2 (self-answered, still open to expert challenge):** the production
+  point is pinned in tools/params.py (PRODUCTION_POINT: log_trace 13, log_blowup 4,
+  n_queries 23, pow_bits 8, air_id 11), chosen from measured cost spikes with
+  committed receipts (docs/m2-cost-receipts.md); the toy stays air_id 10 on wire v1.
+  Soundness: 100 conjectured / 54.0 proven bits (docs/m2-soundness.md).
+  Queries stay drawn-not-deduped: the expected duplicate rate at the production domain
+  is n_queries^2 / (2 * DOMAIN_SIZE) ~= 0.002018 per proof (~0.008072 bits), a
+  quantified disclosure in the memo rather than dedup machinery. PARAMS did not grow a
+  min-queries field: PARAMS already carries N, the verifier hard-asserts the query-list
+  length against it, and the air_id registry pins the statement.
 - **DRIVER-10**: the air_id registry convention (monotonic; the multiplicative toy was 9, the
   circle AIR is 10).
 

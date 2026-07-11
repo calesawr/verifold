@@ -7,13 +7,13 @@ primitives Stacks already exposes (sha256 hashing and native integer arithmetic)
 no consensus change, no protocol upgrade, and no SIP. Verification runs as ordinary contract code
 that every node re-executes.
 
-> **Status: working prototype at demonstration parameters. Not audited. Not production-secure.**
-> A complete proof, produced by an independent Rust prover built on StarkWare's open-source
-> [Stwo](https://github.com/starkware-libs/stwo) library, is verified end to end by the Clarity
-> contract on simnet at about 1% of a block's compute budget. Full-security parameters are the
-> next milestone; a measured cost model shows they fit a single transaction in the planned
-> single-contract form. No security claim is made before raised parameters, independent expert
-> review, and a professional audit. See the litepapers for the honest detail.
+> **Status: working prototype at production security settings. Not audited. No security claim yet.**
+> A complete proof at the pinned production parameter point (about 100 bits under the standard
+> capacity conjecture, 54.0 bits proven; docs/m2-soundness.md), produced by an independent Rust prover
+> built on StarkWare's open-source [Stwo](https://github.com/starkware-libs/stwo) library, is verified end
+> to end by the generated single Clarity contract on simnet at a measured 14.80% of a block's runtime
+> budget ([docs/m2-cost-exhibit.md](docs/m2-cost-exhibit.md)). No security claim is made before
+> independent expert review and a professional audit. See the litepapers for the honest detail.
 
 ## Read first
 

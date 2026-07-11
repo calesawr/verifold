@@ -71,6 +71,33 @@ private. Only this profile is ever proposed for testnet, and testnet waits
 for M2 full parameters (founder decision 2026-07-10). Re-validate against
 interop.test.ts and the driver verify tests before any deploy.
 
+## Full parameters (--point full)
+
+`contracts/full/*.clar`, `contracts/verifold-flat-full.clar`, and
+`tools/flat-manifest-full.json` are GENERATED at the pinned production point
+(tools/params.py PRODUCTION_POINT, wire format v2 with prover-supplied
+inverse hints). Never edit them; CI regenerates and diffs all of them on
+every push. Regenerate after any gear, span, or params edit:
+
+    python3 tools/flatten.py                # toy (default): byte-identity gate
+    python3 tools/flatten.py --point full   # the production artifacts
+
+Verify:
+
+    python3 tools/test_spans.py                  # spans: toy byte-equal, full parses
+    python3 tools/flatten_check.py --point full  # Layer 0 on the full artifact
+    clarinet check                               # all registered contracts, strict checker
+    npx vitest run tests/full/                   # fixtures, tampers, KATs, differential, guards
+    bash tools/mutation_smoke_full.sh            # redirect liveness + byte-identical regen
+
+Production fixtures are committed (interop/fixtures/rust-proofs-full.json);
+regenerate them only with a local `cargo run --release --bin prove -- --point full`
+(cargo stays out of CI by design; CI consumes the committed fixtures). The
+enforced cost gate runs whenever the exhibit regenerates:
+
+    npm run test:report
+    python3 tools/check_cost_gate.py costs-reports.json
+
 ## Cost evidence
 
 See docs/m1-cost-exhibit.md: flat `driver/verify` read_count ~3 versus 2496

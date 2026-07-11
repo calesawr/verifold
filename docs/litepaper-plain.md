@@ -112,11 +112,10 @@ separate prover written in Rust on top of StarkWare's open-source library. The t
 independently, and a cross-check harness confirms they agree on every convention, value for value,
 against the reference software's own functions.
 
-**Measured cost (demonstration settings).** One `verify()` of the demonstration proof consumes about
-**1.0%** of a single block's compute budget. The constraint that matters at full strength is not raw
-compute but the number of internal calls between the verifier's contracts; the path to keeping a
-full-strength check inside a single transaction, merging the verifier into one combined contract, has
-been measured to fit at roughly 4 to 10% of a block across several realistic settings (§7).
+**Measured cost.** One `verify()` of the demonstration proof consumes about **1.0%** of a single block's
+compute budget. The full-strength check now exists and is measured directly: one `verify()` of a real
+full-strength proof by the combined single contract runs at about **14.80%** of a block's compute budget,
+with the raw measurements published in the repository (§7).
 
 **Testing.** The verifier passes over **270 automated tests**. Each piece is built test-first against an
 independent reference implementation and pinned by known-answer values computed by a third
@@ -157,12 +156,11 @@ spot-checks a production proof requires. Raising the settings to full strength m
 work, and the original thirteen-contract structure, which keeps every piece independently testable,
 would exceed the per-transaction limit on internal calls at full strength.
 
-The fix is identified and has now been measured: a single combined contract, generated automatically
-from the same tested pieces, with the arithmetic written inline instead of passing through many internal
-calls. Measured across several realistic full-strength settings, the combined form runs at roughly **4
-to 10% of one block** and reduces the internal-call count to almost nothing, comfortably inside a single
-transaction with a wide safety margin. Building that combined contract, and proving it behaves
-identically to the tested pieces, is the next engineering milestone.
+The fix is built and measured: a single combined contract, generated automatically from the same tested
+pieces, with the arithmetic written inline instead of passing through many internal calls. Checking a
+real full-strength proof with it costs about **14.80% of one block** and reduces the internal-call count
+to almost nothing, comfortably inside a single transaction. The combined contract is proven to behave
+identically to the tested pieces by an automated equivalence pipeline that runs on every change.
 
 The combined contract is the main cost lever, but not the only one. Language changes under discussion for
 the next Clarity upgrade would make exactly the kind of "assemble bytes, then hash" work a proof checker
@@ -228,11 +226,11 @@ rules.
 - **M1: the verifier core in Clarity.** Done at demonstration strength: a complete `verify()` accepts a
   real proof from an independent prover, with 270+ tests and the conventions cross-checked against the
   reference software.
-- **M1.5: production settings and the combined single contract.** In progress. Measurements confirm the
-  combined form fits one transaction at full strength; building and proving it is next, alongside expert
-  sign-off on the settings.
-- **M2: consolidated specification, independent audit, and expert review.**
-- **M3: first external integration and first mainnet proof.**
+- **M2: production security settings in the combined single contract.** Done. The security settings
+  are pinned with the arithmetic shown, the separate prover makes real proofs at those settings, and the
+  combined contract checks them with measured, published costs.
+- **M3: testnet deployment, a consolidated specification, and expert review.**
+- **M4: an independent audit, first external integration, and first mainnet proof.**
 
 ---
 

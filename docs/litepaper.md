@@ -113,12 +113,12 @@ the Clarity verifier accepts it. The two were developed separately and a cross-c
 agree on every algebraic convention, the evaluation domain and its ordering, the interpolation, the quotient
 arithmetic, and the folding, value for value, against Stwo's own functions.
 
-**Measured cost (demonstration parameters).** Using Clarinet, which evaluates against Stacks' real on-chain
-cost model (per-block runtime budget 5,000,000,000 units), one `verify()` of the demonstration proof
-consumes about **1.0%** of a block's runtime budget. The binding constraint at scale is not runtime but the
-count of internal contract-to-contract calls; raising the proof to production security parameters increases
-that count, and the path to keeping it within a single transaction (consolidating the verifier into one
-flattened contract) is scoped and being measured now (§7).
+**Measured cost.** Using Clarinet, which evaluates against Stacks' real on-chain cost model (per-block
+runtime budget 5,000,000,000 units), one `verify()` of the demonstration proof consumes about **1.0%** of a
+block's runtime budget. At production security parameters, one `verify()` of a real proof by the generated
+single contract measures **14.80%** of the block runtime budget on the same simulated network, with the
+internal call count reduced to a handful; the raw measurements are committed in the repository
+(docs/m2-cost-exhibit.md) (§7).
 
 **Testing.** The verifier passes over **270 automated tests**. Each gear is built test-first against an
 independent reference implementation, pinned by known-answer vectors computed by a third independent
@@ -165,13 +165,12 @@ work, and the binding budget is the count of internal contract-to-contract calls
 thirteen-contract structure, which keeps each gear independently testable, would exceed that call budget at
 production parameters.
 
-The fix is identified and unsurprising: a single flattened contract, generated automatically from the same
-verified gears, that performs the arithmetic inline rather than through many small cross-contract calls.
-Early modeling, reproduced against the measured demonstration cost, puts such a contract at a few percent of
-a block's runtime budget at production parameters, with the call count reduced to a handful, comfortably
-within one transaction. A measurement spike to confirm this directly is in progress; until it completes, the
-honest statement is that the demonstration verifies at one percent of a block and the production-parameter
-artifact does not yet exist.
+The fix shipped: a single flattened contract, generated automatically from the same verified gears, that
+performs the arithmetic inline rather than through many small cross-contract calls. The
+production-parameter artifact now exists and is measured rather than modeled: one `verify()` of a real
+production-parameter proof runs at 14.80% of a block's runtime budget with the call count reduced to a
+handful, comfortably within one transaction (docs/m2-cost-exhibit.md, raw receipts in
+docs/m2-cost-receipts.md).
 
 The flattening is the primary lever, but not the only one. Language changes under discussion for the next
 Clarity release would reduce the cost of exactly the byte-assembly-and-hash work a STARK verifier does most:
@@ -183,9 +182,9 @@ to a release yet. These are additional headroom on top of the flattening, not a 
 savings are not yet measured and the cost figures in this document remain point-in-time under the current
 cost model.
 
-If the spike shows a parameter set too large for one transaction, the established fallback is to split the
-verification across several transactions, a pattern used by STARK verifiers on other chains. The design does
-not depend on the optimistic case.
+The measurement replaced the spike: the chosen parameter set fits one transaction with headroom. If a
+future statement ever needs a larger parameter set, the established fallback remains splitting the
+verification across several transactions, a pattern used by STARK verifiers on other chains.
 
 ---
 
@@ -250,10 +249,12 @@ There is no production precedent for a STARK verifier in Clarity; maturity is em
 - **M0: cost benchmark.** Done.
 - **M1: the verifier core in Clarity.** Done at demonstration strength: a complete `verify()` accepts a real
   Circle-STARK proof from an independent Rust prover; 270+ tests; conventions cross-checked against Stwo.
-- **M1.5: production parameters and the flattened single-contract form.** In progress: a measurement spike to
-  confirm the production-parameter verifier fits one transaction, plus the expert sign-off on parameters.
-- **M2: consolidated specification, independent audit, and expert review.**
-- **M3: first external integration and first mainnet proof.**
+- **M2: production security settings in the generated single contract.** Done: the parameter point is
+  pinned with itemized soundness accounting (docs/m2-soundness.md), an independent Rust prover emits real
+  proofs at that point, and the generated single contract verifies them on simnet with measured, receipted
+  costs (docs/m2-cost-exhibit.md).
+- **M3: testnet deployment, consolidated specification, and expert review.**
+- **M4: independent audit, first external integration, and first mainnet proof.**
 
 Open questions for review (the full self-contained list is in the repo's expert-review document): the
 production soundness parameters (query count, blow-up, grinding) and whether to target conjectured or proven
