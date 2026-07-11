@@ -106,6 +106,8 @@ function wrapSimnet(sim: any): any {
       if (prop === "__verifoldBase") return base;
       if (prop === "callReadOnlyFn") return patched;
       if (FLAT && prop === "callPublicFn") return forbidden("callPublicFn");
+      if (FLAT && prop === "callPrivateFn") return forbidden("callPrivateFn");
+      if (FLAT && prop === "execute") return forbidden("execute");
       if (FLAT && prop === "deployContract") return forbidden("deployContract");
       return Reflect.get(target, prop, receiver);
     },

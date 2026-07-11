@@ -21,9 +21,14 @@ so artifact size is trended per push.
     python3 tools/test_flatten_check.py   # Layer 0 unit tests
     python3 tools/flatten_check.py        # Layer 0: token identity, 11 gears
     clarinet check                        # 12 contracts, strict check_checker
-    npm test                              # 240 baseline (gears)
-    VERIFOLD_FLAT=1 npx vitest run        # 240 against verifold-flat
+    npm test                              # 243 baseline (240 suite + 3 guard)
+    VERIFOLD_FLAT=1 npx vitest run        # 243 against verifold-flat
     VERIFOLD_DIFF=1 npx vitest run        # gear vs flat at every call (~2x)
+
+`tests/flat-guard.test.ts` is the 3-test adapter guard: it proves read-only
+traffic stays live in every mode and that the `callPrivateFn` and `execute`
+entry points throw under flat mode instead of silently running gear code
+(`callPublicFn` and `deployContract` are forbidden by the same trap).
 
 Mutation smoke (proves the redirect is live; CI runs it on every push):
 
