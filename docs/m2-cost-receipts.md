@@ -275,3 +275,115 @@ generator, explicitly not the real artifact); the real emitted flat full
 artifact measures 54,928 bytes, 2.48x the shape proxy and 67.0% of the
 80 KB assert (81,920 bytes), leaving 26,992 bytes of headroom. The Task 3
 prediction that the real artifact lands comfortably under 80 KB holds.
+
+## Task 18: full-artifact measurements (the exhibit's raw receipts)
+
+Date: 2026-07-11. Machine: Linux 6.6.114.1-microsoft-standard-WSL2,
+11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz, WSL2.
+Toolchain: @stacks/clarinet-sdk 3.19.0 simnet, vitest 4.1.8, Node v24.16.0.
+Repo rev at measurement: 490b240.
+
+The original Task 18 Step 1 (one plain `npm run test:report` over the
+whole suite) cannot produce these receipts: the toy flat entry only
+exists when the tests-support/flat-adapter.ts redirect is armed with
+VERIFOLD_DIFF=1, and under real cost enforcement (`--costs` switches
+clarinet-sdk to the enforcing LimitedCostTracker) the unflattened
+gear-full pipeline aborts on the block read_count limit, which reds the
+differential test by construction (run C below). The adjudicated
+measurement recipe replaces that step with three runs. Every line below
+is pasted verbatim from the raw logs.
+
+### Run A: toy suite, both pipelines in one run
+
+Command: `VERIFOLD_DIFF=1 npx vitest run --exclude "tests/full/**" -- --coverage --costs`
+
+```
+ Test Files  15 passed (15)
+      Tests  249 passed (249)
+   Duration  204.67s (transform 302ms, setup 186ms, import 353ms, tests 202.70s, environment 1.05s)
+```
+
+(No fri fuzz timeout on this run: diff mode raises the test timeout to
+180 s, so the WSL2 5 s flake the M1 exhibit documented cannot fire here.)
+
+Extraction (the Task 18 Step 2 script), toy lines verbatim:
+
+```
+.driver verify calls=18 max_total={"write_length": 0, "write_count": 0, "read_length": 5561419, "read_count": 2556, "runtime": 50669226}
+.verifold-flat driver/verify calls=18 max_total={"write_length": 0, "write_count": 0, "read_length": 38748, "read_count": 3, "runtime": 44965292}
+```
+
+### Run B: tests/full without the differential file (the headline measurement)
+
+Command: `npx vitest run tests/full/fixtures-full.test.ts tests/full/kats-full.test.ts tests/full/guard-full.test.ts --reporter=verbose -- --coverage --costs`
+
+```
+ Test Files  3 passed (3)
+      Tests  21 passed (21)
+   Duration  14.29s (transform 71ms, setup 60ms, import 40ms, tests 12.99s, environment 1.05s)
+```
+
+Extraction, verbatim:
+
+```
+.verifold-flat-full driver/verify calls=5 max_total={"write_length": 0, "write_count": 0, "read_length": 54929, "read_count": 3, "runtime": 739929603}
+```
+
+Simnet wall time for one full verify() (the cost snapshot console line,
+verbatim):
+
+```
+full driver/verify simnet wall time: 2340ms
+```
+
+### Run C: the impossibility receipt (an expected failure, not a green claim)
+
+Command: `npx vitest run tests/full/differential-full.test.ts --reporter=verbose -- --costs`
+Result: 1 failed | 10 passed (11). The one failure is "every fixture
+verify agrees: accept parity on all sides", and it fails on the GEAR side
+only: one driver-full verify() call at PRODUCTION_POINT exceeds the real
+Stacks block read_count budget when cost limits are enforced. Verbatim
+error from the raw log (raised at fri-full:117:46 inside the driver-full
+verify call):
+
+```
+Error: RuntimeCheck(CostBalanceExceeded(ExecutionCost { write_length: 0, write_count: 0, read_length: 29963833, read_count: 15003, runtime: 186855474 }, ExecutionCost { write_length: 15000000, write_count: 15000, read_length: 100000000, read_count: 15000, runtime: 5000000000 }))
+```
+
+The harness assertion it reds, verbatim:
+
+```
+AssertionError: abort parity on (driver, verify): gear aborted, flat returned: expected false to be true
+```
+
+This failure IS the measurement: the unflattened 11 contract gear
+pipeline cannot fit one production size verify() inside a block's
+read_count budget (15003 needed, 15000 available), while the flattened
+artifact spends read_count 3 on the same call (run B). The suite failure
+is expected under cost enforcement and is not published anywhere as
+green.
+
+### Spike versus real: the deviation note
+
+The Stage 0 cost shape spike measured CAND_A run runtime 117,168,277
+(2.343% of the block limit; raw JSON above in this file), and the M1
+exhibit projected "4 to 10% of a block" at full parameters. The real
+measured verifier runtime is 739,929,603 (14.80% of the block limit),
+6.3x the spike number and above the projected band. The spike missed
+real verifier work: the per query Merkle rebuilds, the DEEP row, and the
+23 query, 16 beta transcript are all absent from the synthetic shape
+contract. Both numbers stay recorded here; the deviation is the lesson,
+and the two are never blended.
+
+cost-gate: full-flat driver/verify runtime 739929603 of 5000000000
+
+Gate proof, after the line above was appended. The run A and run B
+reports were merged into one temporary file (scratch, uncommitted;
+`costs-reports.json` itself is gitignored and never committed) and the
+gate ran against it, output verbatim:
+
+```
+$ python3 tools/check_cost_gate.py <merged run A + run B costs-reports.json>
+cost gate PASSED: toy flat 44965292 <= gear 50669226; full flat 739929603 within the receipts baseline plus 10 percent
+exit: 0
+```
