@@ -861,6 +861,8 @@ def mutation_edit(by_name, spec):
     the VERIFOLD_FLAT=1 failure proves the redirect is live, not vacuous."""
     target, new_lit = spec.split("=", 1)
     gear_name, const_name = target.split(SEPARATOR, 1)
+    if gear_name not in by_name:
+        raise FlattenError(f"--mutate: unknown gear {gear_name!r} in {spec!r}")
     d = by_name[gear_name].defs.get(const_name)
     if d is None or d.kind != "constant":
         raise FlattenError(f"--mutate targets constants only, got {spec!r}")

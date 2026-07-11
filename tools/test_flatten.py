@@ -455,6 +455,12 @@ def test_mutation_edit_flips_only_the_target_literal():
     assert flat != clean and flat.count("2147483646") == 1
 
 
+def test_mutation_edit_unknown_gear_raises_flatten_error():
+    gears, by_name = flatten.build(list(flatten.GEAR_ORDER))
+    expect_error(lambda: flatten.mutation_edit(by_name, "typo/P=u0"),
+                 "unknown gear")
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -503,6 +509,7 @@ TESTS = [
     test_manifest_lookup_shape,
     test_manifest_m2_spans_resolve,
     test_mutation_edit_flips_only_the_target_literal,
+    test_mutation_edit_unknown_gear_raises_flatten_error,
 ]
 
 if __name__ == "__main__":
