@@ -108,3 +108,59 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: VERIFOLD_DIFF=1 npx vitest run
+  # M2: the full-parameter jobs below extend the same drift guard, test
+  # suite, and mutation smoke idiom to the production point (--point full).
+  #
+  # Pinned interface decision: the existing flat-test and diff-suite jobs'
+  # vitest include pattern also spans tests/full/, so those jobs already
+  # exercise the full-parameter tests. That is intentional, not drift: every
+  # tests/full file carries a toy canary and the __verifoldBase bypass so it
+  # runs safely under the toy-point flat/diff artifacts too.
+  full-flatten:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # cargo stays OUT of CI by design: the production fixtures
+      # (interop/fixtures/rust-proofs-full.json) are committed and are
+      # regenerated only by a local
+      # `cargo run --release --bin prove -- --point full`
+      # (see docs/flatten.md). CI consumes the committed fixtures.
+      - run: python3 tools/test_params.py
+      - run: python3 tools/test_soundness.py
+      - run: python3 tools/test_spans.py
+      - run: python3 tools/test_flatten.py
+      - run: python3 tools/test_flatten_check.py
+      # pipefail so tee cannot mask a flatten failure
+      - run: |
+          set -o pipefail
+          python3 tools/flatten.py --point toy | tee flatten-toy.log
+      - run: |
+          set -o pipefail
+          python3 tools/flatten.py --point full | tee flatten-full.log
+      - run: grep -E "(list-covariance|emit-stats):" flatten-toy.log flatten-full.log >> "$GITHUB_STEP_SUMMARY"
+      # the M1 drift guard extended: toy AND full generated artifacts
+      - run: git diff --exit-code contracts/verifold-flat.clar tools/flat-manifest.json contracts/full contracts/verifold-flat-full.clar tools/flat-manifest-full.json
+      - run: python3 tools/flatten_check.py
+      - run: python3 tools/flatten_check.py --point full
+  full-test:
+    runs-on: ubuntu-latest
+    needs: full-flatten
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: npx vitest run tests/full/
+  full-mutation-smoke:
+    runs-on: ubuntu-latest
+    needs: full-flatten
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: bash tools/mutation_smoke_full.sh
