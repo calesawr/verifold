@@ -9,7 +9,8 @@ const FLAT = process.env.VERIFOLD_FLAT === "1";
 // Guard for the flat-mode adapter (tests-support/flat-adapter.ts). Under
 // VERIFOLD_FLAT=1 the adapter redirects callReadOnlyFn to the flat artifact;
 // every other sdk entry point that can execute Clarity against the gears
-// (callPublicFn, callPrivateFn, deployContract, execute) must throw instead,
+// (callPublicFn, callPrivateFn, deployContract, execute, mineBlock) must
+// throw instead,
 // or those calls would silently run gear code while the suite claims to be
 // testing the flat artifact. Outside flat mode the adapter is inert, so the
 // same entry points must keep working; that keeps this file meaningful in
@@ -21,12 +22,16 @@ describe("flat-mode entry-point guard", () => {
     expect((result as any).value).toBe(5n);
   });
 
-  // each probe reaches gear code through an entry point the redirect does not
-  // cover; expected value confirms the probe is real, not a typo that throws
+  // each probe drives an entry point the redirect does not cover; the
+  // asserted value proves the probe is real, not a typo that throws
   const bypass: [string, () => any, bigint][] = [
     ["callPrivateFn", () =>
       (simnet as any).callPrivateFn("driver", "even-of", [Cl.uint(7)], deployer), 6n],
     ["execute", () => (simnet as any).execute("(+ u2 u3)"), 5n],
+    ["mineBlock", () => (simnet as any).mineBlock([
+      { callPrivateFn: { contract: "driver", method: "even-of",
+        args: [Cl.uint(7)], sender: deployer } },
+    ])[0], 6n],
   ];
 
   for (const [name, probe, expected] of bypass) {

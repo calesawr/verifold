@@ -3,7 +3,8 @@
 //
 //   VERIFOLD_FLAT=1  redirect every simnet.callReadOnlyFn(contract, fn, ...)
 //                    to ("verifold-flat", manifest lookup) so the unmodified
-//                    240-test suite runs against the flat artifact.
+//                    240-test gear suite runs against the flat artifact
+//                    (244 in total with the tests/flat-guard.test.ts probes).
 //
 // The lookup consumes tools/flat-manifest.json. The adapter NEVER derives a
 // flat name by string convention: generator and harness cannot drift.
@@ -108,6 +109,7 @@ function wrapSimnet(sim: any): any {
       if (FLAT && prop === "callPublicFn") return forbidden("callPublicFn");
       if (FLAT && prop === "callPrivateFn") return forbidden("callPrivateFn");
       if (FLAT && prop === "execute") return forbidden("execute");
+      if (FLAT && prop === "mineBlock") return forbidden("mineBlock");
       if (FLAT && prop === "deployContract") return forbidden("deployContract");
       return Reflect.get(target, prop, receiver);
     },
