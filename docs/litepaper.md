@@ -158,7 +158,7 @@ The main costs:
 
 ---
 
-## 7. From demonstration to production: the remaining engineering
+## 7. From demonstration to production: how the gap was closed
 
 The demonstration runs at toy security parameters (a small domain, few FRI queries, low grinding). Raising
 these to production strength (more queries, a larger blow-up, more grinding bits) increases the verifier's

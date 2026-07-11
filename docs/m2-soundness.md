@@ -45,6 +45,12 @@ n_queries * log2(blowup) + pow_bits = 23 * 4 + 8 = 100; the QM31
 out of domain sampling terms (~2^-124 each) and the sha256 collision terms
 (~2^-128) cap the accounting far above the target and do not bind.
 
+Note on the cap itself: ood_term and transcript_term are combined as a
+minimum rather than as an error sum, the more conservative reading; at this
+point that choice differs from a full error-sum combination by about
+0.00001 bits, far below the target margin and not enough to change any
+figure stated in this memo.
+
 ## Proven (Johnson bound) accounting
 
 Formula, as implemented in tools/soundness.py, citing the ethSTARK
@@ -116,7 +122,10 @@ against 117,168,277) but the receipts record that comparison as not a
 same-shape win, since the two points do not target the same domain size;
 that is why CAND_A, not FALLBACK_POINT, was pinned as PRODUCTION_POINT.
 Switching to it is a params.py pin change plus full regeneration and a
-fixture re-run; no verifier logic changes.
+fixture re-run; no verifier logic changes. Adopting FALLBACK_POINT would
+also require assigning it a new air_id (12): air_id 11 now names the size
+2^13 statement pinned as PRODUCTION_POINT, and the registry is monotonic,
+so an id already in use is never reassigned to a different statement.
 
 ## Appendix: verbatim tool output
 

@@ -9,7 +9,7 @@ that every node re-executes.
 
 > **Status: working prototype at production security settings. Not audited. No security claim yet.**
 > A complete proof at the pinned production parameter point (about 100 bits under the standard
-> capacity conjecture, 54.0 bits proven; docs/m2-soundness.md), produced by an independent Rust prover
+> capacity conjecture, which is unproven, 54.0 bits proven; docs/m2-soundness.md), produced by an independent Rust prover
 > built on StarkWare's open-source [Stwo](https://github.com/starkware-libs/stwo) library, is verified end
 > to end by the generated single Clarity contract on simnet at a measured 14.80% of a block's runtime
 > budget ([docs/m2-cost-exhibit.md](docs/m2-cost-exhibit.md)). No security claim is made before
@@ -33,7 +33,8 @@ that every node re-executes.
 | `tools/` | The from-scratch Python replay that pins the known-answer vectors, and the full-parameter cost-shape generator |
 
 The flattening transform, its five-layer equivalence proof, and the measured verification costs are
-documented in [`docs/flatten.md`](docs/flatten.md) and [`docs/m1-cost-exhibit.md`](docs/m1-cost-exhibit.md).
+documented in [`docs/flatten.md`](docs/flatten.md), [`docs/m1-cost-exhibit.md`](docs/m1-cost-exhibit.md), and
+[`docs/m2-cost-exhibit.md`](docs/m2-cost-exhibit.md).
 
 ## Running the tests
 

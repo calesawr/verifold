@@ -160,8 +160,12 @@ would exceed the per-transaction limit on internal calls at full strength.
 The fix is built and measured: a single combined contract, generated automatically from the same tested
 pieces, with the arithmetic written inline instead of passing through many internal calls. Checking a
 real full-strength proof with it costs about **14.80% of one block** and reduces the internal-call count
-to almost nothing, comfortably inside a single transaction. The combined contract is proven to behave
-identically to the tested pieces by an automated equivalence pipeline that runs on every change.
+to almost nothing, comfortably inside a single transaction. The combined contract is checked to behave
+identically to the tested pieces by an automated equivalence pipeline that runs on every change. At the
+production settings, that evidence is a byte-for-byte match between the generated pieces and the combined
+contract, plus a full run of the end-to-end and tamper tests against the combined contract; the exhaustive
+check that compares every single call between the pieces and the combined contract runs at the reduced
+settings.
 
 The combined contract is the main cost lever, but not the only one. Language changes under discussion for
 the next Clarity upgrade would make exactly the kind of "assemble bytes, then hash" work a proof checker
