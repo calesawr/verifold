@@ -434,7 +434,7 @@ def test_manifest_m2_spans_resolve():
     gears, _by = flatten.build(list(flatten.GEAR_ORDER))
     m = flatten.build_manifest(gears)
     spans = m["m2ParameterSpans"]
-    assert len(spans) == 31
+    assert len(spans) == 33
     by_key = {(s["gear"], s["name"]): s for s in spans}
     q = by_key[("query", "DOMAIN_SIZE")]
     src = flatten.read_gear("query")
@@ -480,6 +480,20 @@ def test_templated_toy_identity_all_gears():
     for name in flatten.GEAR_ORDER:
         text, _missing = flatten.templated_gear(name, "toy")
         assert text == flatten.read_gear(name), name
+
+
+def test_full_point_build_passes_gates_and_reaches_emit_full():
+    # Task 11 interface promise (Task 9 brief anticipated it verbatim): with
+    # all 33 spans templated, --point full passes every build gate -- the
+    # per-site call checks still run; only the toy-source census pin is
+    # scoped out -- and stops at the emit_full stub until Task 12.
+    gears, by_name = flatten.build(list(flatten.GEAR_ORDER), "full")
+    try:
+        flatten.emit_full(gears, by_name, {})
+    except NotImplementedError as e:
+        assert "Task 12" in str(e), str(e)
+        return
+    raise AssertionError("emit_full stub should raise until Task 12")
 
 
 TESTS = [
@@ -533,6 +547,7 @@ TESTS = [
     test_mutation_edit_unknown_gear_raises_flatten_error,
     test_production_demotes_verify_query,
     test_templated_toy_identity_all_gears,
+    test_full_point_build_passes_gates_and_reaches_emit_full,
 ]
 
 if __name__ == "__main__":

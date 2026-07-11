@@ -267,3 +267,221 @@ def _s_query_idx_step(point, d):
   (let ((r (contract-call? .transcript squeeze-m31 (get state acc))))
     {{ state: (get state r),
       idx: (unwrap-panic (as-max-len? (append (get idx acc) (mod (get v r) DOMAIN_SIZE)) u{cap})) }}))"""
+
+
+# ---------------- Task 11: the generated driver cascade (wire v2) ----------------
+
+TOY_PIN_SHA256.update({
+    ("driver", "verify-query"):
+        "4247592a537b1e7a36b0d2ec2116591f27949b7223d3a0dd4c77cff7ede9657f",
+    ("driver", "query-step"):
+        "134c581308a6f9fc54df57fb4038c109338c671e4b6cefd7015a6dbabcaae067",
+    ("driver", "verify"):
+        "7afb692c56ec3b6064d636b064c5dc0159342126e257e21d93624cc870be9997",
+})
+
+_FOLD_ONE_HINT = """(define-read-only (fold-one-hint
+    (v { c0: uint, c1: uint, c2: uint, c3: uint })
+    (sib { c0: uint, c1: uint, c2: uint, c3: uint })
+    (t uint)
+    (h uint)
+    (beta { c0: uint, c1: uint, c2: uint, c3: uint })
+    (pos uint))
+  (contract-call? .fri fri-fold-down-hint v
+    (list { sibling: sib, x: t, hint: h, beta: beta, v-is-right: (is-eq (mod pos u2) u1) })))"""
+
+
+def _path_helpers_full(D):
+    """Full-depth twins of path-step/path-from-pos/bound-at-pos/pair-bound.
+    The toy originals stay in the source verbatim (they are outside every
+    span) but their (list 4)/(list 3) caps cannot carry depth-D paths, so
+    the generated cascade defines and uses -full variants."""
+    return f"""(define-private (path-step-full
+    (sib (buff 32))
+    (st {{ path: (list {D} {{ sibling: (buff 32), node-is-right: bool }}), pos: uint }}))
+  {{ path: (unwrap-panic (as-max-len? (append (get path st)
+            {{ sibling: sib, node-is-right: (is-eq (mod (get pos st) u2) u1) }}) u{D})),
+    pos: (/ (get pos st) u2) }})
+(define-read-only (path-from-pos-full (sibs (list {D} (buff 32))) (pos uint))
+  (get path (fold path-step-full sibs {{ path: (list), pos: pos }})))
+(define-read-only (bound-at-pos-full
+    (v {_QT})
+    (sibs (list {D} (buff 32)))
+    (pos uint)
+    (depth uint)
+    (root (buff 32)))
+  (begin
+    (require! (is-eq (len sibs) depth))
+    (contract-call? .merkle merkle-verify (qleaf v) (path-from-pos-full sibs pos) root)))
+(define-read-only (pair-bound-full
+    (self {_QT})
+    (sib {_QT})
+    (pos uint)
+    (parent-sibs (list {D - 1} (buff 32)))
+    (parent-depth uint)
+    (root (buff 32)))
+  (begin
+    (require! (is-eq (len parent-sibs) parent-depth))
+    (contract-call? .merkle merkle-verify
+      (contract-call? .merkle merkle-root (qleaf self)
+        (list {{ sibling: (qleaf sib), node-is-right: (is-eq (mod pos u2) u1) }}))
+      (path-from-pos-full parent-sibs (/ pos u2))
+      root)))"""
+
+
+def _line_x(k):
+    """Twiddle helper for line layer k: multiplier 2^k and k-1 iterated pi-x
+    calls (line-x1/line-x2 already exist in the gear and match this shape)."""
+    open_pi = "(contract-call? .fri pi-x " * (k - 1)
+    close_pi = ")" * (k - 1)
+    m = 2 ** k
+    return (f"(define-read-only (line-x{k} (q uint))\n"
+            f"  {open_pi}(contract-call? .query query-x "
+            f"(* u{m} (even-of (/ q u{m})))){close_pi})")
+
+
+def _bundle_type(d, pad):
+    """Per-query proof bundle tuple type: full-depth t/c paths, the first
+    layer pair, one (sib, parent-path) pair per line layer with parent depth
+    LOG_DOMAIN-1-k, and the N_LAYERS inverse hints (wire v2)."""
+    D, L = d["LOG_DOMAIN"], d["N_LAYERS"]
+    rows = [f"t-x: {_QT}, t-sibs: (list {D} (buff 32)),",
+            f"c-x: {_QT}, c-sibs: (list {D} (buff 32)),",
+            f"p0-sib: {_QT}, p0-sibs: (list {D - 1} (buff 32)),"]
+    for k in range(1, L):
+        rows.append(f"l{k}-sib: {_QT}, l{k}-sibs: (list {D - 1 - k} (buff 32)),")
+    rows.append(f"hints: (list {L} uint) }}")
+    return "{ " + ("\n" + " " * pad).join(rows)
+
+
+def _env_type(d, pad):
+    L = d["N_LAYERS"]
+    rows = [f"{n}: {_QT}," for n in ("t-z", "t-gz", "t-g2z", "c0-z", "c1-z",
+                                     "c2-z", "c3-z", "zx", "zy", "gamma")]
+    rows += [f"b{k}: {_QT}," for k in range(L)]
+    rows.append("troot: (buff 32), croot: (buff 32),")
+    rows.append(" ".join(f"fr{k}: (buff 32)," for k in range(L)))
+    rows.append(f"final: {_QT} }}")
+    return "{ " + ("\n" + " " * pad).join(rows)
+
+
+@template("driver", "VERSION")
+def _d_version(point, d):
+    v = 1 if point == params.TOY_POINT else 2
+    return f"(define-constant VERSION 0x{v:02x})"
+
+
+@template("driver", "verify-query")
+def _d_verify_query(point, d):
+    if point == params.TOY_POINT:
+        return _toy_slice("driver", "verify-query")  # wire v1, untouched
+    D, L = d["LOG_DOMAIN"], d["N_LAYERS"]
+    parts = [_FOLD_ONE_HINT, _path_helpers_full(D)]
+    parts += [_line_x(k) for k in range(3, L)]
+
+    def hint(k):
+        return f"(unwrap-panic (element-at? (get hints prf) u{k}))"
+
+    # per-layer semantics mirror driver.clar's toy cascade exactly: position
+    # parity routes orientation, pair-bound parents carry depth D-1-k, the
+    # circle fold's twiddle slot carries y (fold_circle_into_line), and the
+    # final fold value must equal the transmitted degree-0 constant.
+    lets = ["(pt (contract-call? .query query-point q))"]
+    lets += [f"(k{k} (/ q u{2 ** k}))" for k in range(1, L)]
+    lets.append("(g-base (require! (and (is-eq (get c1 (get t-x prf)) u0) "
+                "(is-eq (get c2 (get t-x prf)) u0) "
+                "(is-eq (get c3 (get t-x prf)) u0))))")
+    lets.append(f"(g-t (require! (bound-at-pos-full (get t-x prf) "
+                f"(get t-sibs prf) q u{D} (get troot env))))")
+    lets.append(f"(g-c (require! (bound-at-pos-full (get c-x prf) "
+                f"(get c-sibs prf) q u{D} (get croot env))))")
+    lets.append("(p0 (contract-call? .cdeep deep-row (get t-x prf) (get c-x prf) "
+                "(get t-z env) (get t-gz env) (get t-g2z env) "
+                "(get c0-z env) (get c1-z env) (get c2-z env) (get c3-z env) "
+                "(get re pt) (get im pt) (get zx env) (get zy env) (get gamma env)))")
+    lets.append(f"(g-p0 (require! (pair-bound-full p0 (get p0-sib prf) q "
+                f"(get p0-sibs prf) u{D - 1} (get fr0 env))))")
+    lets.append(f"(v1 (fold-one-hint p0 (get p0-sib prf) (y-twiddle q) "
+                f"{hint(0)} (get b0 env) q))")
+    for k in range(1, L):
+        lets.append(f"(g-l{k} (require! (pair-bound-full v{k} (get l{k}-sib prf) "
+                    f"k{k} (get l{k}-sibs prf) u{D - 1 - k} (get fr{k} env))))")
+        lets.append(f"(v{k + 1} (fold-one-hint v{k} (get l{k}-sib prf) "
+                    f"(line-x{k} q) {hint(k)} (get b{k} env) k{k}))")
+    lets.append(f"(g-fin (require! (contract-call? .qm31 qm31-eq v{L} "
+                f"(get final env))))")
+    binds = ("\n" + " " * 8).join(lets)
+    parts.append(f"""(define-read-only (verify-query
+    (q uint)
+    (prf {_bundle_type(d, 11)})
+    (env {_env_type(d, 11)}))
+  (let ({binds})
+    true))""")
+    return "\n".join(parts)
+
+
+@template("driver", "query-step")
+def _d_query_step(point, d):
+    if point == params.TOY_POINT:
+        return _toy_slice("driver", "query-step")
+    cap = list_cap(d)
+    return f"""(define-private (query-step
+    (prf {_bundle_type(d, 11)})
+    (st {{ k: uint, idx: (list {cap} uint),
+          env: {_env_type(d, 16)} }}))
+  (begin
+    (require! (verify-query (unwrap-panic (element-at? (get idx st) (get k st))) prf (get env st)))
+    {{ k: (+ (get k st) u1), idx: (get idx st), env: (get env st) }}))"""
+
+
+@template("driver", "verify")
+def _d_verify(point, d):
+    if point == params.TOY_POINT:
+        return _toy_slice("driver", "verify")
+    L, n = d["N_LAYERS"], point["n_queries"]
+    # same check order as the toy sound entry point: lengths, derive, pow
+    # FIRST, betas/index lengths, felt-to-point once, the OOD closure
+    # (cair-compose-check, mutation-pinned, DO NOT REMOVE), then the N
+    # per-query pipelines via fold. Sequential let bindings preserve order.
+    env_rows = ["t-z: t-z, t-gz: t-gz, t-g2z: t-g2z,",
+                "c0-z: c0-z, c1-z: c1-z, c2-z: c2-z, c3-z: c3-z,",
+                "zx: (get x zp), zy: (get y zp),",
+                "gamma: (get gamma ch),"]
+    env_rows += [f"b{k}: (unwrap-panic (element-at? (get betas ch) u{k})),"
+                 for k in range(L)]
+    env_rows.append("troot: trace-root, croot: comp-root,")
+    env_rows += [f"fr{k}: (unwrap-panic (element-at? fri-roots u{k})),"
+                 for k in range(L)]
+    env_rows.append("final: final }")
+    env_text = "{ " + ("\n" + " " * 25).join(env_rows)
+    return f"""(define-read-only (verify
+    (pub (buff 256))
+    (trace-root (buff 32))
+    (comp-root (buff 32))
+    (t-z {_QT})
+    (t-gz {_QT})
+    (t-g2z {_QT})
+    (c0-z {_QT})
+    (c1-z {_QT})
+    (c2-z {_QT})
+    (c3-z {_QT})
+    (fri-roots (list {L} (buff 32)))
+    (final {_QT})
+    (nonce (buff 8))
+    (queries (list {n} {_bundle_type(d, 21)})))
+  (let ((params (contract-call? .schedule get-params))
+        (g-lr (require! (is-eq (len fri-roots) (get l params))))
+        (g-nq (require! (is-eq (len queries) (get n params))))
+        (ch (contract-call? .schedule derive-challenges (make-ctx pub)
+             trace-root comp-root t-z t-gz t-g2z c0-z c1-z c2-z c3-z fri-roots final nonce))
+        (g-pow (require! (get pow-ok ch)))
+        (g-bl (require! (is-eq (len (get betas ch)) (get l params))))
+        (g-ql (require! (is-eq (len (get query-indices ch)) (get n params))))
+        (zp (contract-call? .cair felt-to-point (get z ch)))
+        (g-ood (require! (contract-call? .cair cair-compose-check
+                 t-z t-gz t-g2z (get x zp) (get y zp) (get alpha ch)
+                 c0-z c1-z c2-z c3-z)))
+        (done (fold query-step queries
+                {{ k: u0, idx: (get query-indices ch),
+                  env: {env_text} }})))
+    true))"""

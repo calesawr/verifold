@@ -980,6 +980,14 @@
       "note": "gamma-power unroll g^0..g^6 and the 4-way comp packing"
     },
     {
+      "byteEnd": 3181,
+      "byteStart": 3151,
+      "gear": "driver",
+      "kind": "constant",
+      "name": "VERSION",
+      "note": "wire format version byte: 0x01 at the toy point (v1, no hints), 0x02 at the production point (v2)"
+    },
+    {
       "byteEnd": 3539,
       "byteStart": 3496,
       "gear": "driver",
@@ -1002,6 +1010,14 @@
       "kind": "private",
       "name": "query-step",
       "note": "(list 32 uint) idx read; proof-bundle list types"
+    },
+    {
+      "byteEnd": 17516,
+      "byteStart": 14020,
+      "gear": "driver",
+      "kind": "read-only",
+      "name": "verify",
+      "note": "N-query/L-root list types and the b0..b(L-1) / fr0..fr(L-1) env construction; tagged in M2 Task 11 because wire v2 re-shapes the sound entry point"
     }
   ],
   "separator": "/",

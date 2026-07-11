@@ -573,7 +573,12 @@ PINNED_CALL_BREAKDOWN = {"qm31": 95, "transcript": 19, "commit": 9,
                          "cair": 2, "schedule": 2, "cdeep": 1}
 
 
-def check_call_sites(by_name, all_sites):
+def check_call_sites(by_name, all_sites, pin_census=True):
+    """Per-site gates (arity, read-only, definition order) always run. The
+    census comparison pins the CHECKED-IN gear sources, so build() scopes it
+    to the toy point: full-point generated sources legitimately carry a
+    different call set (the hint cascade alone adds N_LAYERS fri calls per
+    query path); the full census pin lands with the full manifest (Task 12)."""
     counts = {}
     for s in all_sites:
         counts[s.callee] = counts.get(s.callee, 0) + 1
@@ -596,7 +601,7 @@ def check_call_sites(by_name, all_sites):
             raise FlattenError(
                 f"{s.caller} calls {s.callee}: violates definition order "
                 f"(GEAR_ORDER is the concatenation order)")
-    if counts != PINNED_CALL_BREAKDOWN:
+    if pin_census and counts != PINNED_CALL_BREAKDOWN:
         raise FlattenError(
             f"call-site census drifted: {counts} != {PINNED_CALL_BREAKDOWN}. "
             "A gear edit changed the cross-contract call set; re-pin deliberately.")
@@ -772,7 +777,7 @@ def check_coupled_constants(by_name, point=None):
 # Every toy-parameter-coupled span, tagged with source location and role.
 # This inventory is M2's work order: only these regions become
 # template-generated; everything else continues through the verbatim
-# transform. 31 entries.
+# transform. 33 entries (31 from M1 + driver VERSION/verify tagged in M2 Task 11).
 M2_SPAN_ROLES = [
     ("query", "DOMAIN_SIZE", "toy LDE coset size 2^L; production ~2^17"),
     ("query", "HALF", "DOMAIN_SIZE / 2, the half-coset size"),
@@ -804,10 +809,15 @@ M2_SPAN_ROLES = [
     ("cdeep", "SX", "own copy of the trace step (own-G precedent)"),
     ("cdeep", "SY", "own copy of the trace step (own-G precedent)"),
     ("cdeep", "deep-row", "gamma-power unroll g^0..g^6 and the 4-way comp packing"),
+    ("driver", "VERSION", "wire format version byte: 0x01 at the toy point "
+                          "(v1, no hints), 0x02 at the production point (v2)"),
     ("driver", "PARAMS", "N, L, blowup, pow_bits, air_id bytes"),
     ("driver", "verify-query", "depth-4 paths, parent lengths 3/2/1, the "
                                "unrolled circle+line fold cascade"),
     ("driver", "query-step", "(list 32 uint) idx read; proof-bundle list types"),
+    ("driver", "verify", "N-query/L-root list types and the b0..b(L-1) / "
+                         "fr0..fr(L-1) env construction; tagged in M2 Task 11 "
+                         "because wire v2 re-shapes the sound entry point"),
 ]
 
 M2_NOTES = [
@@ -976,7 +986,7 @@ def build(names, point_name="toy"):
         g.analysis = classify_gear(g)
     if set(names) == set(GEAR_ORDER):
         all_sites = [s for g in gears for s in g.analysis.call_sites]
-        check_call_sites(by_name, all_sites)
+        check_call_sites(by_name, all_sites, pin_census=(point_name == "toy"))
         check_collisions(gears)
         check_coupled_constants(by_name, resolve_point(point_name))
         check_math_anchor(by_name, resolve_point(point_name))

@@ -28,7 +28,11 @@ TASK10_SPANS = {
     ("cdeep", "deep-row"),
     ("schedule", "fri-beta-step"), ("schedule", "query-idx-step"),
 }
-EXPECTED_IMPLEMENTED = TASK9_SPANS | TASK10_SPANS
+TASK11_SPANS = {
+    ("driver", "VERSION"), ("driver", "verify-query"),
+    ("driver", "query-step"), ("driver", "verify"),
+}
+EXPECTED_IMPLEMENTED = TASK9_SPANS | TASK10_SPANS | TASK11_SPANS
 
 
 def manifest_spans():
@@ -168,6 +172,45 @@ def test_mask_and_deep_render_identically_at_both_points():
         assert toy == full, (gear, name)
 
 
+def test_toy_driver_spans_are_the_gear_bytes():
+    # v1 stays v1: the toy renders are the sha-pinned gear slices
+    g = flatten.Gear("driver", flatten.read_gear("driver"))
+    for name in ("verify-query", "query-step", "verify"):
+        d = g.defs[name]
+        want = g.src[d.start:d.end].encode("utf-8")
+        assert spans.render_span("driver", name, params.TOY_POINT) == want, name
+    assert spans.render_span("driver", "VERSION", params.TOY_POINT) == \
+        b"(define-constant VERSION 0x01)"
+
+
+def test_full_driver_cascade_shape():
+    point = params.PRODUCTION_POINT
+    d = params.derived(point)
+    L, D = d["N_LAYERS"], d["LOG_DOMAIN"]
+    vq = spans.render_span("driver", "verify-query", point).decode()
+    assert _parses(vq)
+    assert vq.count("(fold-one-hint ") == L                # one fold per layer
+    assert vq.count("element-at? (get hints prf)") == L    # one checked hint each
+    assert f"hints: (list {L} uint)" in vq
+    assert f"t-sibs: (list {D} (buff 32))" in vq
+    assert f"l{L - 1}-sibs: (list {D - 1 - (L - 1)} (buff 32))" in vq
+    assert "(contract-call? .fri fri-fold-down-hint" in vq
+    for k in range(3, L):
+        assert f"(define-read-only (line-x{k} (q uint))" in vq
+    assert f"pair-bound-full p0" in vq and f"u{D - 1} (get fr0 env)" in vq
+    qs = spans.render_span("driver", "query-step", point).decode()
+    assert _parses(qs)
+    assert f"idx: (list {spans.list_cap(d)} uint)" in qs
+    vf = spans.render_span("driver", "verify", point).decode()
+    assert _parses(vf)
+    assert f"(fri-roots (list {L} (buff 32)))" in vf
+    assert f"(queries (list {point['n_queries']} " in vf
+    assert f"b{L - 1}: (unwrap-panic (element-at? (get betas ch) u{L - 1}))" in vf
+    assert f"fr{L - 1}: (unwrap-panic (element-at? fri-roots u{L - 1}))" in vf
+    assert spans.render_span("driver", "VERSION", point).decode() == \
+        "(define-constant VERSION 0x02)"
+
+
 TESTS = [
     test_registry_covers_exactly_the_expected_spans,
     test_unimplemented_span_raises_not_implemented,
@@ -178,6 +221,8 @@ TESTS = [
     test_full_bitrev_fold_emulates_bit_reversal,
     test_full_structural_shapes,
     test_mask_and_deep_render_identically_at_both_points,
+    test_toy_driver_spans_are_the_gear_bytes,
+    test_full_driver_cascade_shape,
 ]
 
 if __name__ == "__main__":
