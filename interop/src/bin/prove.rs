@@ -222,8 +222,8 @@ fn main() {
 
     for pub_bytes in pubs {
         // ---- ctx + trace commit -> alpha ----
-        let ctx =
-            [DOMAIN_LABEL, &[0x01u8], &point.params_bytes()[..], &sha(&[pub_bytes])].concat();
+        let ctx = [DOMAIN_LABEL, &[point.version()], &point.params_bytes()[..], &sha(&[pub_bytes])]
+            .concat();
         let s0 = sha(&[&ctx]);
         let ttree = Tree::new(tcol.iter().map(|&v| leaf(SecureField::from(v))).collect());
         let (alpha, st) = squeeze_qm31(absorb(s0, 0x01, &ttree.root()));
@@ -396,6 +396,27 @@ fn main() {
                         })
                         .collect();
                     obj.insert("lineSibs".into(), serde_json::json!(layers));
+
+                    // v2 hints: N_LAYERS twiddle inverses (circle fold first, then the
+                    // line layers), each checked (t * h == 1) at emission. The twiddles
+                    // are exactly what driver.clar derives: y-twiddle(q) and the
+                    // line-x_k(q) closed forms, generalized.
+                    let mut hints: Vec<u32> = vec![];
+                    let y_q = qp[qi & !1usize].y;
+                    let h0 = y_q.inverse();
+                    assert_eq!(y_q * h0, m(1), "hint 0 inverse check q={qi}");
+                    hints.push(h0.0);
+                    for l in 1..n_layers {
+                        let idx = ((qi >> l) & !1usize) << l;
+                        let mut x = qp[idx].x;
+                        for _ in 0..(l - 1) {
+                            x = x * x + x * x - m(1);
+                        }
+                        let h = x.inverse();
+                        assert_eq!(x * h, m(1), "hint {l} inverse check q={qi}");
+                        hints.push(h.0);
+                    }
+                    obj.insert("hints".into(), serde_json::json!(hints));
                 }
                 serde_json::Value::Object(obj)
             })

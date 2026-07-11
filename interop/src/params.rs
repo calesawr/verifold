@@ -48,6 +48,11 @@ impl Point {
         out[4..8].copy_from_slice(&self.air_id.to_be_bytes());
         out
     }
+    /// Wire format version byte: the toy point is frozen on v1; every other point is v2
+    /// (prover-supplied inverse hints; the verifier checks (t*h) == 1 and multiplies).
+    pub fn version(&self) -> u8 {
+        if self.log_trace == 3 && self.log_blowup == 1 { 0x01 } else { 0x02 }
+    }
 }
 
 /// The toy point: 8-row trace, 16-point domain, wire v1. PARAMS must equal the pinned
