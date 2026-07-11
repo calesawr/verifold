@@ -23,7 +23,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flatten import GEAR_ORDER, REPO_ROOT, SEPARATOR, read_gear, tokenize
 
-BANNER_RE = re.compile(r"^;; =+ gear: ([a-z0-9]+) \(contracts/[a-z0-9]+\.clar\) =+$")
+BANNER_RE = re.compile(
+    r"^;; =+ gear: ([a-z0-9]+) \(contracts/(?:full/)?[a-z0-9]+\.clar\) =+$")
 GEARS = set(GEAR_ORDER)
 
 
@@ -60,6 +61,27 @@ def code_tokens(text):
     return [t for t in tokenize(text) if t.kind != "COMMENT"]
 
 
+def gear_source(gear, point="toy"):
+    if point == "full":
+        path = os.path.join(REPO_ROOT, "contracts", "full", f"{gear}.clar")
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    return read_gear(gear)
+
+
+def normalize_full_targets(texts):
+    """Exact inverse of flatten.rewrite_full_refs on a token-text list:
+    .X-full -> .X for gear names, so the full gear sources compare against
+    the inverted flat artifact under the SAME two-edit-kind contract."""
+    out = []
+    for t in texts:
+        if t.startswith(".") and t.endswith("-full") and t[1:-5] in GEARS:
+            out.append(t[:-5])
+        else:
+            out.append(t)
+    return out
+
+
 def invert(flat_toks, gear_name):
     """Exact inverse of the two edit kinds, from the separator alone."""
     out = []
@@ -78,7 +100,7 @@ def invert(flat_toks, gear_name):
     return out
 
 
-def compare(flat_text):
+def compare(flat_text, point="toy"):
     """Token-stream identity for all 11 gears; returns failure diagnostics."""
     failures = []
     try:
@@ -106,7 +128,9 @@ def compare(flat_text):
         return failures  # stop early — no point checking unknown/missing gears
 
     for gear in GEAR_ORDER:
-        want = [t.text for t in code_tokens(read_gear(gear))]
+        want = [t.text for t in code_tokens(gear_source(gear, point))]
+        if point == "full":
+            want = normalize_full_targets(want)
         got = invert(code_tokens(sections[gear]), gear)
         if want != got:
             k = 0
@@ -118,16 +142,29 @@ def compare(flat_text):
     return failures
 
 
-def main():
-    path = os.path.join(REPO_ROOT, "contracts", "verifold-flat.clar")
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    point = "toy"
+    it = iter(argv)
+    for arg in it:
+        if arg == "--point":
+            point = next(it, "")
+        else:
+            print(f"flatten_check: FAIL unknown option {arg!r}")
+            return 2
+    if point not in ("toy", "full"):
+        print(f"flatten_check: FAIL unknown point {point!r}")
+        return 2
+    artifact = "verifold-flat-full.clar" if point == "full" else "verifold-flat.clar"
+    path = os.path.join(REPO_ROOT, "contracts", artifact)
     with open(path, encoding="utf-8") as fh:
         flat_text = fh.read()
-    failures = compare(flat_text)
+    failures = compare(flat_text, point)
     if failures:
         for f in failures:
             print(f"flatten_check: FAIL {f}")
         return 1
-    print(f"flatten_check: OK ({len(GEAR_ORDER)} gears token-identical)")
+    print(f"flatten_check: OK ({len(GEAR_ORDER)} gears token-identical, {point})")
     return 0
 
 

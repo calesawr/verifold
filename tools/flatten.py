@@ -562,6 +562,18 @@ def apply_edits(src, edits):
     return out
 
 
+def rewrite_full_refs(text):
+    """Mechanical contract-ref rewrite for the full gear sources: every
+    contract-call? target .X whose X is a gear becomes .X-full, so the
+    generated sources call the -full registrations. Nothing else moves."""
+    toks = tokenize(text)
+    edits = [(t.start, t.end, t.text + "-full")
+             for t in toks
+             if t.kind == "ATOM" and t.text.startswith(".")
+             and t.text[1:] in GEAR_ORDER]
+    return apply_edits(text, edits)
+
+
 # ---------------- Stage 2 acceptance: the pinned call census ----------------
 
 # 144 sites by callee, recounted by the judges and re-verified against the
@@ -573,12 +585,12 @@ PINNED_CALL_BREAKDOWN = {"qm31": 95, "transcript": 19, "commit": 9,
                          "cair": 2, "schedule": 2, "cdeep": 1}
 
 
-def check_call_sites(by_name, all_sites, pin_census=True):
+def check_call_sites(by_name, all_sites, pinned=PINNED_CALL_BREAKDOWN):
     """Per-site gates (arity, read-only, definition order) always run. The
-    census comparison pins the CHECKED-IN gear sources, so build() scopes it
-    to the toy point: full-point generated sources legitimately carry a
-    different call set (the hint cascade alone adds N_LAYERS fri calls per
-    query path); the full census pin lands with the full manifest (Task 12)."""
+    census comparison runs against `pinned` when given (build() passes the
+    toy pin for the checked-in gear sources and None at full: the generated
+    full sources legitimately carry a different call set, pinned separately
+    in test_flatten's full-census test). Returns the counts either way."""
     counts = {}
     for s in all_sites:
         counts[s.callee] = counts.get(s.callee, 0) + 1
@@ -601,10 +613,11 @@ def check_call_sites(by_name, all_sites, pin_census=True):
             raise FlattenError(
                 f"{s.caller} calls {s.callee}: violates definition order "
                 f"(GEAR_ORDER is the concatenation order)")
-    if pin_census and counts != PINNED_CALL_BREAKDOWN:
+    if pinned is not None and counts != pinned:
         raise FlattenError(
-            f"call-site census drifted: {counts} != {PINNED_CALL_BREAKDOWN}. "
+            f"call-site census drifted: {counts} != {pinned}. "
             "A gear edit changed the cross-contract call set; re-pin deliberately.")
+    return counts
 
 
 def check_collisions(gears):
@@ -832,7 +845,8 @@ M2_NOTES = [
 ]
 
 
-def build_manifest(gears):
+def build_manifest(gears, contract="verifold-flat", input_dir="contracts",
+                   input_texts=None, allow_absorbed=False):
     functions = {}
     constants = {}
     for g in gears:
@@ -848,17 +862,27 @@ def build_manifest(gears):
     by_name = {g.name: g for g in gears}
     spans = []
     for gear_name, def_name, note in M2_SPAN_ROLES:
-        d = by_name[gear_name].defs[def_name]
+        d = by_name[gear_name].defs.get(def_name)
+        if d is None:
+            if not allow_absorbed:
+                raise FlattenError(
+                    f"manifest: span {gear_name}/{def_name} unresolved")
+            spans.append({"gear": gear_name, "name": def_name, "kind": None,
+                          "byteStart": None, "byteEnd": None,
+                          "note": note + " (absorbed at this point)"})
+            continue
         spans.append({"gear": gear_name, "name": def_name, "kind": d.kind,
                       "byteStart": d.start, "byteEnd": d.end, "note": note})
     return {
         "version": 1,
         "generator": f"tools/flatten.py v{GENERATOR_VERSION}",
         "separator": SEPARATOR,
-        "contract": "verifold-flat",
+        "contract": contract,
         "gearOrder": GEAR_ORDER,
-        "inputs": {g.name: {"path": f"contracts/{g.name}.clar",
-                            "sha256": sha256_hex(g.src)} for g in gears},
+        "inputs": {g.name: {"path": f"{input_dir}/{g.name}.clar",
+                            "sha256": sha256_hex(
+                                (input_texts or {}).get(g.name, g.src))}
+                   for g in gears},
         "functions": functions,
         "constants": constants,
         "m2ParameterSpans": spans,
@@ -881,32 +905,40 @@ def gear_flat_text(gear, edits):
     return "\n".join(ln for ln in lines if ln != "")
 
 
-def banner(gear_name):
+def banner(gear_name, src_dir="contracts"):
     bar = "=" * 25
-    return f";; {bar} gear: {gear_name} (contracts/{gear_name}.clar) {bar}"
+    return f";; {bar} gear: {gear_name} ({src_dir}/{gear_name}.clar) {bar}"
 
 
-def provenance_header(gears):
+def provenance_header(gears, full=False, texts=None):
+    artifact = "verifold-flat-full.clar" if full else "verifold-flat.clar"
+    regen = "python3 tools/flatten.py --point full" if full \
+        else "python3 tools/flatten.py"
+    verify = "python3 tools/flatten_check.py --point full" if full \
+        else "python3 tools/flatten_check.py"
+    src_dir = "contracts/full" if full else "contracts"
     lines = [
-        ";; verifold-flat.clar: GENERATED FILE. DO NOT EDIT.",
+        f";; {artifact}: GENERATED FILE. DO NOT EDIT.",
         ";; One-contract emission of the 11-gear circle-STARK verifier.",
         f";; Generator: tools/flatten.py v{GENERATOR_VERSION} (separator {SEPARATOR!r})",
-        ";; Regenerate: python3 tools/flatten.py",
-        ";; Verify:     python3 tools/flatten_check.py",
+        f";; Regenerate: {regen}",
+        f";; Verify:     {verify}",
         ";; Inputs (sha256):",
     ]
     for g in gears:
-        lines.append(f";;   {sha256_hex(g.src)}  contracts/{g.name}.clar")
+        text = (texts or {}).get(g.name, g.src)
+        lines.append(f";;   {sha256_hex(text)}  {src_dir}/{g.name}.clar")
     return "\n".join(lines)
 
 
-def emit_flat(gears, extra=None):
+def emit_flat(gears, extra=None, full=False, texts=None):
     """Deterministic emission: provenance header, then per-gear banner and
     body in GEAR_ORDER. No timestamps anywhere."""
     extra = extra or {}
-    parts = [provenance_header(gears)]
+    src_dir = "contracts/full" if full else "contracts"
+    parts = [provenance_header(gears, full, texts)]
     for g in gears:
-        parts.append(banner(g.name))
+        parts.append(banner(g.name, src_dir))
         parts.append(gear_flat_text(g, g.analysis.edits + extra.get(g.name, [])))
     flat = "\n".join(parts) + "\n"
     size = len(flat.encode("utf-8"))
@@ -986,7 +1018,14 @@ def build(names, point_name="toy"):
         g.analysis = classify_gear(g)
     if set(names) == set(GEAR_ORDER):
         all_sites = [s for g in gears for s in g.analysis.call_sites]
-        check_call_sites(by_name, all_sites, pin_census=(point_name == "toy"))
+        counts = check_call_sites(
+            by_name, all_sites,
+            PINNED_CALL_BREAKDOWN if point_name == "toy" else None)
+        if point_name != "toy":
+            # generated sources: the human-edit tripwire is the TOY pin plus
+            # toy byte-identity; full-artifact drift is caught by the
+            # regen-and-diff guard. The census prints for the receipts.
+            print(f"call-census ({point_name}, informational): {counts}")
         check_collisions(gears)
         check_coupled_constants(by_name, resolve_point(point_name))
         check_math_anchor(by_name, resolve_point(point_name))
@@ -1023,11 +1062,44 @@ def parse_args(argv):
     return opts
 
 
-def emit_full(gears, by_name, opts):
-    """Production emission profile. Lands in Task 12."""
-    raise NotImplementedError(
-        "full emission lands in Task 12 (contracts/full/, "
-        "contracts/verifold-flat-full.clar, tools/flat-manifest-full.json)")
+def full_gear_header(name):
+    return (f";; contracts/full/{name}.clar: GENERATED FILE. DO NOT EDIT.\n"
+            f";; Emitted from contracts/{name}.clar by the M2 span templates at\n"
+            f";; params.PRODUCTION_POINT. Comments are inherited from the toy gear\n"
+            f";; and may describe toy values; the code is the production point.\n"
+            f";; Regenerate: python3 tools/flatten.py --point full\n")
+
+
+def emit_full(gears, by_name, opts, extra=None):
+    """Production emission: 11 full gear sources (refs rewritten .X ->
+    .X-full), the flattened full artifact, and the full manifest. Under
+    --mutate only the flat artifact is written (Layer 4 smoke, one file)."""
+    extra = extra or {}
+    full_dir = os.path.join(REPO_ROOT, "contracts", "full")
+    os.makedirs(full_dir, exist_ok=True)
+    full_texts = {g.name: full_gear_header(g.name) + rewrite_full_refs(g.src)
+                  for g in gears}
+    if not opts["mutate"]:
+        for g in gears:
+            path = os.path.join(full_dir, f"{g.name}.clar")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(full_texts[g.name])
+            print(f"wrote {path}")
+    flat = emit_flat(gears, extra, full=True, texts=full_texts)
+    out = os.path.join(REPO_ROOT, "contracts", "verifold-flat-full.clar")
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(flat)
+    print_stats(flat, gears)
+    if not opts["mutate"]:
+        manifest_path = os.path.join(REPO_ROOT, "tools", "flat-manifest-full.json")
+        manifest = build_manifest(gears, contract="verifold-flat-full",
+                                  input_dir="contracts/full",
+                                  input_texts=full_texts, allow_absorbed=True)
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2, sort_keys=True)
+            fh.write("\n")
+        print(f"wrote {manifest_path}")
+    print(f"wrote {out}")
 
 
 def main(argv):
@@ -1040,15 +1112,17 @@ def main(argv):
     if opts["point"] == "full" and opts["production"]:
         raise SystemExit("--point full is exclusive with --production "
                          "(the deployable full profile is M3 work)")
+    if opts["point"] == "full" and opts["gears"]:
+        raise SystemExit("--point full emits all gears; --gears is toy-only")
     gears, by_name = build(names, opts["point"])
-    if opts["point"] == "full":
-        emit_full(gears, by_name, opts)
-        return
     extra = {}
     if opts["mutate"]:
         gname, edit = mutation_edit(by_name, opts["mutate"])
         extra.setdefault(gname, []).append(edit)
         print(f"MUTATED ARTIFACT (Layer 4 smoke only, do NOT commit): {opts['mutate']}")
+    if opts["point"] == "full":
+        emit_full(gears, by_name, opts, extra)
+        return
     if opts["production"]:
         for gname, fname in sorted(PRODUCTION_DEMOTE):
             d = by_name[gname].defs[fname]

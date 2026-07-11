@@ -482,18 +482,63 @@ def test_templated_toy_identity_all_gears():
         assert text == flatten.read_gear(name), name
 
 
-def test_full_point_build_passes_gates_and_reaches_emit_full():
-    # Task 11 interface promise (Task 9 brief anticipated it verbatim): with
-    # all 33 spans templated, --point full passes every build gate -- the
-    # per-site call checks still run; only the toy-source census pin is
-    # scoped out -- and stops at the emit_full stub until Task 12.
+def test_rewrite_full_refs():
+    src = "(define-read-only (f (a uint)) (contract-call? .qm31 qm31-from-m31 a))"
+    out = flatten.rewrite_full_refs(src)
+    assert out == ("(define-read-only (f (a uint)) "
+                   "(contract-call? .qm31-full qm31-from-m31 a))"), out
+    # non-gear dotted atoms and slash natives pass through untouched
+    assert flatten.rewrite_full_refs("(sha512/256 0x00)") == "(sha512/256 0x00)"
+
+
+def test_full_point_build_passes_gates():
+    import params
     gears, by_name = flatten.build(list(flatten.GEAR_ORDER), "full")
-    try:
-        flatten.emit_full(gears, by_name, {})
-    except NotImplementedError as e:
-        assert "Task 12" in str(e), str(e)
-        return
-    raise AssertionError("emit_full stub should raise until Task 12")
+    d = params.derived(params.PRODUCTION_POINT)
+    # the templated sources carry the production constants...
+    assert by_name["schedule"].defs["N"].value == \
+        ("uint", params.PRODUCTION_POINT["n_queries"])
+    assert by_name["driver"].defs["PARAMS"].value == ("buff", d["PARAMS"])
+    assert by_name["driver"].defs["VERSION"].value == ("buff", b"\x02")
+    # ...and the generated cascade landed as real definitions
+    for name in ("fold-one-hint", "pair-bound-full", f"line-x{d['N_LAYERS'] - 1}"):
+        assert name in by_name["driver"].defs, name
+    assert "BITREV4" not in by_name["query"].defs  # absorbed
+    assert "bitrev-step" in by_name["query"].defs
+
+
+def test_manifest_full_absorbed_spans():
+    gears, _by = flatten.build(list(flatten.GEAR_ORDER), "full")
+    m = flatten.build_manifest(gears, contract="verifold-flat-full",
+                               input_dir="contracts/full", allow_absorbed=True)
+    by_key = {(s["gear"], s["name"]): s for s in m["m2ParameterSpans"]}
+    absorbed = sorted(k for k, s in by_key.items() if s["byteStart"] is None)
+    assert absorbed == [("query", "BITREV4")], absorbed
+    assert by_key[("driver", "verify-query")]["byteStart"] is not None
+    assert m["contract"] == "verifold-flat-full"
+    assert m["inputs"]["field"]["path"] == "contracts/full/field.clar"
+
+
+# The FULL point's cross-contract call breakdown, pinned (Task 12; the Task 11
+# review noted it unpinned). build() runs the census informationally at full;
+# this test is the deliberate pin: a template edit that changes the generated
+# call set must re-pin this table with the same ceremony as the toy pin.
+PINNED_FULL_CALL_BREAKDOWN = {"fri": 107, "qm31": 95, "transcript": 19,
+                              "query": 17, "commit": 9, "merkle": 7,
+                              "field": 6, "schedule": 2, "cair": 2, "cdeep": 1}
+
+
+def test_full_census_pinned():
+    gears, by_name = flatten.build(list(flatten.GEAR_ORDER), "full")
+    sites = [s for g in gears for s in g.analysis.call_sites]
+    counts = flatten.check_call_sites(by_name, sites, pinned=None)
+    assert counts == PINNED_FULL_CALL_BREAKDOWN, counts
+    assert sum(counts.values()) == 265, sum(counts.values())
+    # non-vacuous: the pinned comparison path fires on a duplicated site
+    expect_error(
+        lambda: flatten.check_call_sites(by_name, sites + [sites[0]],
+                                         pinned=PINNED_FULL_CALL_BREAKDOWN),
+        "census drifted")
 
 
 TESTS = [
@@ -547,7 +592,10 @@ TESTS = [
     test_mutation_edit_unknown_gear_raises_flatten_error,
     test_production_demotes_verify_query,
     test_templated_toy_identity_all_gears,
-    test_full_point_build_passes_gates_and_reaches_emit_full,
+    test_rewrite_full_refs,
+    test_full_point_build_passes_gates,
+    test_manifest_full_absorbed_spans,
+    test_full_census_pinned,
 ]
 
 if __name__ == "__main__":
