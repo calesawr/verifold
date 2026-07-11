@@ -19,9 +19,12 @@
 // the sdk proxy; it rebinds the GLOBAL to a second Proxy that serves the
 // patched callReadOnlyFn and Reflects everything else (initSession,
 // setCurrentTestName, getLastContractCallTrace, collectReport) through
-// untouched. vitest-environment-clarinet re-sets global.simnet at every test
-// file's environment setup, so the wrap re-applies per file in beforeEach,
-// keyed on a __verifoldWrapped probe that only the wrapper answers.
+// untouched. With pool forks + isolate:false, the environment sets
+// globalThis.simnet ONCE per worker and it persists across files; the setup
+// module re-imports fresh per file. The wrap re-applies per file via a
+// module-local wrapped flag, and __verifoldBase unwraps the persisted
+// prior-file proxy so each new wrapper binds the real sdk proxy (no stacking,
+// no dead counter closures).
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, expect } from "vitest";
 
@@ -77,7 +80,6 @@ function wrapSimnet(sim: any): any {
   };
   return new Proxy(base, {
     get(target, prop, receiver) {
-      if (prop === "__verifoldWrapped") return true;
       if (prop === "__verifoldBase") return base;
       if (prop === "callReadOnlyFn") return patched;
       if (prop === "callPublicFn") return forbidden("callPublicFn");
