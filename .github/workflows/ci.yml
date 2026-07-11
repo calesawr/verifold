@@ -1,8 +1,19 @@
-# Verifold CI: the test suite is the project's spec oracle, so it must pass on every change.
+# Verifold CI: the test suite is the project's spec oracle, so it must pass on
+# every change. The flatten jobs keep contracts/verifold-flat.clar provably
+# equal to the gears: regenerate-and-diff (drift guard), Layer 0 identity,
+# the full suite against the flat artifact, a mutation smoke test proving the
+# flat redirect is live, and a vacuity smoke test proving the per-file
+# zero-redirected-calls gate fires. A weekly scheduled run adds differential
+# mode. emit-stats lands in each build's job summary to trend artifact size.
+# Deliberate limitation: no clarinet binary here; analysis errors fail simnet
+# deployment loudly, but strict check_checker WARNINGS are enforced only at
+# local regeneration time (see docs/flatten.md).
 name: ci
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "0 5 * * 1"
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -14,3 +25,86 @@ jobs:
           cache: "npm"
       - run: npm ci          # fails on any package.json <-> lockfile drift
       - run: npm test        # the full differential / property / KAT suite
+  flatten:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/test_params.py
+      - run: python3 tools/test_flatten.py
+      - run: python3 tools/test_flatten_check.py
+      # pipefail so tee cannot mask a flatten failure
+      - run: |
+          set -o pipefail
+          python3 tools/flatten.py | tee flatten-run.log
+      # trend the artifact size: the emit-stats and covariance lines land in
+      # this build's job summary, so growth is visible per push
+      - run: grep -E "^(list-covariance|emit-stats):" flatten-run.log >> "$GITHUB_STEP_SUMMARY"
+      # drift guard: a gear edit without regeneration, or a hand-edited
+      # artifact, diffs here and fails the build
+      - run: git diff --exit-code contracts/verifold-flat.clar tools/flat-manifest.json
+      - run: python3 tools/flatten_check.py
+  flat-test:
+    runs-on: ubuntu-latest
+    needs: flatten
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: VERIFOLD_FLAT=1 npx vitest run
+  mutation-smoke:
+    runs-on: ubuntu-latest
+    needs: flatten
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: python3 tools/flatten.py --mutate qm31/P=u2147483646
+      - run: |
+          if VERIFOLD_FLAT=1 npx vitest run tests/qm31.test.ts; then
+            echo "MUTATION NOT DETECTED: the flat redirect is not live"
+            exit 1
+          fi
+  vacuity-smoke:
+    runs-on: ubuntu-latest
+    needs: flatten
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      # the Task 14 negative fixture, recreated on every push: a test file
+      # with zero contract calls MUST fail the per-file anti-vacuity gate
+      - run: |
+          cat > tests/zz-vacuity-probe.test.ts <<'EOF'
+          import { describe, expect, it } from "vitest";
+
+          describe("vacuity probe (deliberately makes zero contract calls)", () => {
+            it("passes trivially", () => {
+              expect(1 + 1).toBe(2);
+            });
+          });
+          EOF
+      - run: |
+          if VERIFOLD_FLAT=1 npx vitest run tests/zz-vacuity-probe.test.ts; then
+            echo "VACUITY GATE NOT LIVE: a zero-call file passed under flat mode"
+            exit 1
+          fi
+  diff-suite:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - run: VERIFOLD_DIFF=1 npx vitest run
