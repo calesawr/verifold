@@ -43,10 +43,9 @@ to surface such a consumer inside M1.
 
 DEFERRAL (2026-07-10): Devnet smoke test deferred. Docker is unavailable in
 the WSL2 environment and cannot be provisioned at this time. The `/` separator
-is verified by `clarinet check` (Task 18) and simnet tests (Tasks 17 and 19).
-Smoke must run on a provisioned Docker environment before any M2 deploy
-decision. Follow-up task required: re-run Task 20 devnet smoke after Docker
-is available.
+is verified by `clarinet check` and the full simnet suite, but not yet by a
+live devnet node RPC call. The smoke must run on a provisioned Docker
+environment before any M2 deploy decision.
 
 ## Production profile (deploy time only)
 
