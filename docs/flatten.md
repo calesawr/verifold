@@ -75,3 +75,5 @@ interop.test.ts and the driver verify tests before any deploy.
 
 See docs/m1-cost-exhibit.md: flat `driver/verify` read_count ~3 versus 2496
 through the gear pipeline, runtime at or below the gear baseline.
+
+M2 note: the TS mini-prover stays toy-only. At the production point one naive buildHonestProof measured {"completed":false,"phase":"trace-lde","elapsedMs":300063.26269199996,"done":22,"total":131072} (Task 17, ledger in .superpowers/sdd/progress.md), so tests/full relies on the Rust fixtures plus the Python replay KATs, two independent provers.
