@@ -82,3 +82,63 @@ epoch = "3.1"
 path = "contracts/verifold-flat.clar"
 clarity_version = 3
 epoch = "3.1"
+
+[contracts.field-full]
+path = "contracts/full/field.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.qm31-full]
+path = "contracts/full/qm31.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.cair-full]
+path = "contracts/full/cair.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.cdeep-full]
+path = "contracts/full/cdeep.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.merkle-full]
+path = "contracts/full/merkle.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.commit-full]
+path = "contracts/full/commit.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.fri-full]
+path = "contracts/full/fri.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.query-full]
+path = "contracts/full/query.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.transcript-full]
+path = "contracts/full/transcript.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.schedule-full]
+path = "contracts/full/schedule.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.driver-full]
+path = "contracts/full/driver.clar"
+clarity_version = 3
+epoch = "3.1"
+
+[contracts.verifold-flat-full]
+path = "contracts/verifold-flat-full.clar"
+clarity_version = 3
+epoch = "3.1"

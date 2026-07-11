@@ -1,0 +1,1116 @@
+{
+  "constants": {
+    "cair": {
+      "B01_A": {
+        "flat": "cair/B01_A",
+        "kind": "constant"
+      },
+      "B01_B": {
+        "flat": "cair/B01_B",
+        "kind": "constant"
+      },
+      "B01_C": {
+        "flat": "cair/B01_C",
+        "kind": "constant"
+      },
+      "Q_I": {
+        "flat": "cair/Q_I",
+        "kind": "constant"
+      },
+      "Q_IU": {
+        "flat": "cair/Q_IU",
+        "kind": "constant"
+      },
+      "Q_U": {
+        "flat": "cair/Q_U",
+        "kind": "constant"
+      },
+      "SEL_A": {
+        "flat": "cair/SEL_A",
+        "kind": "constant"
+      },
+      "SEL_B": {
+        "flat": "cair/SEL_B",
+        "kind": "constant"
+      },
+      "SEL_C": {
+        "flat": "cair/SEL_C",
+        "kind": "constant"
+      },
+      "SX": {
+        "flat": "cair/SX",
+        "kind": "constant"
+      },
+      "SY": {
+        "flat": "cair/SY",
+        "kind": "constant"
+      }
+    },
+    "cdeep": {
+      "P": {
+        "flat": "cdeep/P",
+        "kind": "constant"
+      },
+      "SX": {
+        "flat": "cdeep/SX",
+        "kind": "constant"
+      },
+      "SY": {
+        "flat": "cdeep/SY",
+        "kind": "constant"
+      }
+    },
+    "commit": {
+      "P": {
+        "flat": "commit/P",
+        "kind": "constant"
+      }
+    },
+    "driver": {
+      "DOMAIN_LABEL": {
+        "flat": "driver/DOMAIN_LABEL",
+        "kind": "constant"
+      },
+      "PARAMS": {
+        "flat": "driver/PARAMS",
+        "kind": "constant"
+      },
+      "VERSION": {
+        "flat": "driver/VERSION",
+        "kind": "constant"
+      }
+    },
+    "field": {
+      "P": {
+        "flat": "field/P",
+        "kind": "constant"
+      },
+      "POW_EXP_BOUND": {
+        "flat": "field/POW_EXP_BOUND",
+        "kind": "constant"
+      },
+      "STEPS": {
+        "flat": "field/STEPS",
+        "kind": "constant"
+      }
+    },
+    "fri": {},
+    "merkle": {},
+    "qm31": {
+      "P": {
+        "flat": "qm31/P",
+        "kind": "constant"
+      }
+    },
+    "query": {
+      "CM_POW_BOUND": {
+        "flat": "query/CM_POW_BOUND",
+        "kind": "constant"
+      },
+      "CM_STEPS": {
+        "flat": "query/CM_STEPS",
+        "kind": "constant"
+      },
+      "DOMAIN_SIZE": {
+        "flat": "query/DOMAIN_SIZE",
+        "kind": "constant"
+      },
+      "H": {
+        "flat": "query/H",
+        "kind": "constant"
+      },
+      "HALF": {
+        "flat": "query/HALF",
+        "kind": "constant"
+      },
+      "OFF": {
+        "flat": "query/OFF",
+        "kind": "constant"
+      },
+      "P": {
+        "flat": "query/P",
+        "kind": "constant"
+      }
+    },
+    "schedule": {
+      "DOMAIN_SIZE": {
+        "flat": "schedule/DOMAIN_SIZE",
+        "kind": "constant"
+      },
+      "L": {
+        "flat": "schedule/L",
+        "kind": "constant"
+      },
+      "N": {
+        "flat": "schedule/N",
+        "kind": "constant"
+      },
+      "POW_THRESHOLD": {
+        "flat": "schedule/POW_THRESHOLD",
+        "kind": "constant"
+      },
+      "QUERY_COUNTER": {
+        "flat": "schedule/QUERY_COUNTER",
+        "kind": "constant"
+      }
+    },
+    "transcript": {
+      "OP_ABSORB": {
+        "flat": "transcript/OP_ABSORB",
+        "kind": "constant"
+      },
+      "OP_POW": {
+        "flat": "transcript/OP_POW",
+        "kind": "constant"
+      },
+      "OP_SQUEEZE": {
+        "flat": "transcript/OP_SQUEEZE",
+        "kind": "constant"
+      },
+      "P": {
+        "flat": "transcript/P",
+        "kind": "constant"
+      },
+      "T_NONCE": {
+        "flat": "transcript/T_NONCE",
+        "kind": "constant"
+      },
+      "T_QM31": {
+        "flat": "transcript/T_QM31",
+        "kind": "constant"
+      },
+      "T_ROOT": {
+        "flat": "transcript/T_ROOT",
+        "kind": "constant"
+      }
+    }
+  },
+  "contract": "verifold-flat-full",
+  "functions": {
+    "cair": {
+      "cair-compose": {
+        "arity": 6,
+        "flat": "cair/cair-compose",
+        "kind": "read-only"
+      },
+      "cair-compose-check": {
+        "arity": 10,
+        "flat": "cair/cair-compose-check",
+        "kind": "read-only"
+      },
+      "cair-quotients": {
+        "arity": 5,
+        "flat": "cair/cair-quotients",
+        "kind": "read-only"
+      },
+      "coset-vanish": {
+        "arity": 1,
+        "flat": "cair/coset-vanish",
+        "kind": "read-only"
+      },
+      "eval-transition": {
+        "arity": 3,
+        "flat": "cair/eval-transition",
+        "kind": "read-only"
+      },
+      "felt-to-point": {
+        "arity": 1,
+        "flat": "cair/felt-to-point",
+        "kind": "read-only"
+      },
+      "line-b01": {
+        "arity": 2,
+        "flat": "cair/line-b01",
+        "kind": "read-only"
+      },
+      "line-sel": {
+        "arity": 2,
+        "flat": "cair/line-sel",
+        "kind": "read-only"
+      },
+      "mask-point": {
+        "arity": 3,
+        "flat": "cair/mask-point",
+        "kind": "read-only"
+      },
+      "point-add-base": {
+        "arity": 4,
+        "flat": "cair/point-add-base",
+        "kind": "read-only"
+      },
+      "qpi": {
+        "arity": 1,
+        "flat": "cair/qpi",
+        "kind": "read-only"
+      },
+      "recomb": {
+        "arity": 4,
+        "flat": "cair/recomb",
+        "kind": "read-only"
+      }
+    },
+    "cdeep": {
+      "conj-u": {
+        "arity": 1,
+        "flat": "cdeep/conj-u",
+        "kind": "read-only"
+      },
+      "deep-row": {
+        "arity": 14,
+        "flat": "cdeep/deep-row",
+        "kind": "read-only"
+      },
+      "denom-inv": {
+        "arity": 4,
+        "flat": "cdeep/denom-inv",
+        "kind": "read-only"
+      },
+      "limb": {
+        "arity": 1,
+        "flat": "cdeep/limb",
+        "kind": "private"
+      },
+      "line-coeffs": {
+        "arity": 3,
+        "flat": "cdeep/line-coeffs",
+        "kind": "read-only"
+      },
+      "quot-term": {
+        "arity": 3,
+        "flat": "cdeep/quot-term",
+        "kind": "read-only"
+      },
+      "rot-s": {
+        "arity": 2,
+        "flat": "cdeep/rot-s",
+        "kind": "private"
+      }
+    },
+    "commit": {
+      "m31-to-be4": {
+        "arity": 1,
+        "flat": "commit/m31-to-be4",
+        "kind": "private"
+      },
+      "opening-bound": {
+        "arity": 3,
+        "flat": "commit/opening-bound",
+        "kind": "read-only"
+      },
+      "qm31-enc16": {
+        "arity": 1,
+        "flat": "commit/qm31-enc16",
+        "kind": "read-only"
+      },
+      "qm31-leaf": {
+        "arity": 1,
+        "flat": "commit/qm31-leaf",
+        "kind": "read-only"
+      }
+    },
+    "driver": {
+      "bound-at-pos": {
+        "arity": 5,
+        "flat": "driver/bound-at-pos",
+        "kind": "read-only"
+      },
+      "bound-at-pos-full": {
+        "arity": 5,
+        "flat": "driver/bound-at-pos-full",
+        "kind": "read-only"
+      },
+      "even-of": {
+        "arity": 1,
+        "flat": "driver/even-of",
+        "kind": "private"
+      },
+      "fold-one": {
+        "arity": 5,
+        "flat": "driver/fold-one",
+        "kind": "read-only"
+      },
+      "fold-one-hint": {
+        "arity": 6,
+        "flat": "driver/fold-one-hint",
+        "kind": "read-only"
+      },
+      "line-x1": {
+        "arity": 1,
+        "flat": "driver/line-x1",
+        "kind": "read-only"
+      },
+      "line-x10": {
+        "arity": 1,
+        "flat": "driver/line-x10",
+        "kind": "read-only"
+      },
+      "line-x11": {
+        "arity": 1,
+        "flat": "driver/line-x11",
+        "kind": "read-only"
+      },
+      "line-x12": {
+        "arity": 1,
+        "flat": "driver/line-x12",
+        "kind": "read-only"
+      },
+      "line-x13": {
+        "arity": 1,
+        "flat": "driver/line-x13",
+        "kind": "read-only"
+      },
+      "line-x14": {
+        "arity": 1,
+        "flat": "driver/line-x14",
+        "kind": "read-only"
+      },
+      "line-x15": {
+        "arity": 1,
+        "flat": "driver/line-x15",
+        "kind": "read-only"
+      },
+      "line-x2": {
+        "arity": 1,
+        "flat": "driver/line-x2",
+        "kind": "read-only"
+      },
+      "line-x3": {
+        "arity": 1,
+        "flat": "driver/line-x3",
+        "kind": "read-only"
+      },
+      "line-x4": {
+        "arity": 1,
+        "flat": "driver/line-x4",
+        "kind": "read-only"
+      },
+      "line-x5": {
+        "arity": 1,
+        "flat": "driver/line-x5",
+        "kind": "read-only"
+      },
+      "line-x6": {
+        "arity": 1,
+        "flat": "driver/line-x6",
+        "kind": "read-only"
+      },
+      "line-x7": {
+        "arity": 1,
+        "flat": "driver/line-x7",
+        "kind": "read-only"
+      },
+      "line-x8": {
+        "arity": 1,
+        "flat": "driver/line-x8",
+        "kind": "read-only"
+      },
+      "line-x9": {
+        "arity": 1,
+        "flat": "driver/line-x9",
+        "kind": "read-only"
+      },
+      "make-ctx": {
+        "arity": 1,
+        "flat": "driver/make-ctx",
+        "kind": "read-only"
+      },
+      "pair-bound": {
+        "arity": 6,
+        "flat": "driver/pair-bound",
+        "kind": "read-only"
+      },
+      "pair-bound-full": {
+        "arity": 6,
+        "flat": "driver/pair-bound-full",
+        "kind": "read-only"
+      },
+      "path-from-pos": {
+        "arity": 2,
+        "flat": "driver/path-from-pos",
+        "kind": "read-only"
+      },
+      "path-from-pos-full": {
+        "arity": 2,
+        "flat": "driver/path-from-pos-full",
+        "kind": "read-only"
+      },
+      "path-step": {
+        "arity": 2,
+        "flat": "driver/path-step",
+        "kind": "private"
+      },
+      "path-step-full": {
+        "arity": 2,
+        "flat": "driver/path-step-full",
+        "kind": "private"
+      },
+      "qleaf": {
+        "arity": 1,
+        "flat": "driver/qleaf",
+        "kind": "private"
+      },
+      "query-step": {
+        "arity": 2,
+        "flat": "driver/query-step",
+        "kind": "private"
+      },
+      "require!": {
+        "arity": 1,
+        "flat": "driver/require!",
+        "kind": "private"
+      },
+      "verify": {
+        "arity": 14,
+        "flat": "driver/verify",
+        "kind": "read-only"
+      },
+      "verify-query": {
+        "arity": 3,
+        "flat": "driver/verify-query",
+        "kind": "read-only"
+      },
+      "y-twiddle": {
+        "arity": 1,
+        "flat": "driver/y-twiddle",
+        "kind": "read-only"
+      }
+    },
+    "field": {
+      "m31-add": {
+        "arity": 2,
+        "flat": "field/m31-add",
+        "kind": "read-only"
+      },
+      "m31-div": {
+        "arity": 2,
+        "flat": "field/m31-div",
+        "kind": "read-only"
+      },
+      "m31-inv": {
+        "arity": 1,
+        "flat": "field/m31-inv",
+        "kind": "read-only"
+      },
+      "m31-mul": {
+        "arity": 2,
+        "flat": "field/m31-mul",
+        "kind": "read-only"
+      },
+      "m31-pow": {
+        "arity": 2,
+        "flat": "field/m31-pow",
+        "kind": "read-only"
+      },
+      "m31-sub": {
+        "arity": 2,
+        "flat": "field/m31-sub",
+        "kind": "read-only"
+      },
+      "pow-step": {
+        "arity": 2,
+        "flat": "field/pow-step",
+        "kind": "private"
+      }
+    },
+    "fri": {
+      "fold-layer-step": {
+        "arity": 2,
+        "flat": "fri/fold-layer-step",
+        "kind": "private"
+      },
+      "fold-layer-step-hint": {
+        "arity": 2,
+        "flat": "fri/fold-layer-step-hint",
+        "kind": "private"
+      },
+      "fri-final-ok": {
+        "arity": 3,
+        "flat": "fri/fri-final-ok",
+        "kind": "read-only"
+      },
+      "fri-fold-check": {
+        "arity": 5,
+        "flat": "fri/fri-fold-check",
+        "kind": "read-only"
+      },
+      "fri-fold-down": {
+        "arity": 2,
+        "flat": "fri/fri-fold-down",
+        "kind": "read-only"
+      },
+      "fri-fold-down-hint": {
+        "arity": 2,
+        "flat": "fri/fri-fold-down-hint",
+        "kind": "read-only"
+      },
+      "fri-fold-step": {
+        "arity": 4,
+        "flat": "fri/fri-fold-step",
+        "kind": "read-only"
+      },
+      "fri-fold-step-hint": {
+        "arity": 5,
+        "flat": "fri/fri-fold-step-hint",
+        "kind": "read-only"
+      },
+      "pi-x": {
+        "arity": 1,
+        "flat": "fri/pi-x",
+        "kind": "read-only"
+      }
+    },
+    "merkle": {
+      "merkle-root": {
+        "arity": 2,
+        "flat": "merkle/merkle-root",
+        "kind": "read-only"
+      },
+      "merkle-step": {
+        "arity": 2,
+        "flat": "merkle/merkle-step",
+        "kind": "private"
+      },
+      "merkle-verify": {
+        "arity": 3,
+        "flat": "merkle/merkle-verify",
+        "kind": "read-only"
+      }
+    },
+    "qm31": {
+      "cm-inv": {
+        "arity": 2,
+        "flat": "qm31/cm-inv",
+        "kind": "private"
+      },
+      "cm-mul": {
+        "arity": 4,
+        "flat": "qm31/cm-mul",
+        "kind": "read-only"
+      },
+      "cm-mul-r": {
+        "arity": 2,
+        "flat": "qm31/cm-mul-r",
+        "kind": "private"
+      },
+      "cm-sub": {
+        "arity": 4,
+        "flat": "qm31/cm-sub",
+        "kind": "private"
+      },
+      "m31-add": {
+        "arity": 2,
+        "flat": "qm31/m31-add",
+        "kind": "private"
+      },
+      "m31-mul": {
+        "arity": 2,
+        "flat": "qm31/m31-mul",
+        "kind": "private"
+      },
+      "m31-sub": {
+        "arity": 2,
+        "flat": "qm31/m31-sub",
+        "kind": "private"
+      },
+      "qm31-add": {
+        "arity": 2,
+        "flat": "qm31/qm31-add",
+        "kind": "read-only"
+      },
+      "qm31-eq": {
+        "arity": 2,
+        "flat": "qm31/qm31-eq",
+        "kind": "read-only"
+      },
+      "qm31-from-m31": {
+        "arity": 1,
+        "flat": "qm31/qm31-from-m31",
+        "kind": "read-only"
+      },
+      "qm31-inv": {
+        "arity": 1,
+        "flat": "qm31/qm31-inv",
+        "kind": "read-only"
+      },
+      "qm31-mul": {
+        "arity": 2,
+        "flat": "qm31/qm31-mul",
+        "kind": "read-only"
+      },
+      "qm31-mul-m31": {
+        "arity": 2,
+        "flat": "qm31/qm31-mul-m31",
+        "kind": "read-only"
+      },
+      "qm31-sub": {
+        "arity": 2,
+        "flat": "qm31/qm31-sub",
+        "kind": "read-only"
+      }
+    },
+    "query": {
+      "bitrev": {
+        "arity": 1,
+        "flat": "query/bitrev",
+        "kind": "read-only"
+      },
+      "bitrev-step": {
+        "arity": 2,
+        "flat": "query/bitrev-step",
+        "kind": "private"
+      },
+      "cm": {
+        "arity": 2,
+        "flat": "query/cm",
+        "kind": "private"
+      },
+      "cm-pow": {
+        "arity": 2,
+        "flat": "query/cm-pow",
+        "kind": "private"
+      },
+      "cm-pow-step": {
+        "arity": 2,
+        "flat": "query/cm-pow-step",
+        "kind": "private"
+      },
+      "conj": {
+        "arity": 1,
+        "flat": "query/conj",
+        "kind": "private"
+      },
+      "domain-point": {
+        "arity": 1,
+        "flat": "query/domain-point",
+        "kind": "read-only"
+      },
+      "domain-x": {
+        "arity": 1,
+        "flat": "query/domain-x",
+        "kind": "read-only"
+      },
+      "query-point": {
+        "arity": 1,
+        "flat": "query/query-point",
+        "kind": "read-only"
+      },
+      "query-x": {
+        "arity": 1,
+        "flat": "query/query-x",
+        "kind": "read-only"
+      }
+    },
+    "schedule": {
+      "derive-challenges": {
+        "arity": 13,
+        "flat": "schedule/derive-challenges",
+        "kind": "read-only"
+      },
+      "fri-beta-step": {
+        "arity": 2,
+        "flat": "schedule/fri-beta-step",
+        "kind": "private"
+      },
+      "get-params": {
+        "arity": 0,
+        "flat": "schedule/get-params",
+        "kind": "read-only"
+      },
+      "query-idx-step": {
+        "arity": 2,
+        "flat": "schedule/query-idx-step",
+        "kind": "private"
+      }
+    },
+    "transcript": {
+      "absorb": {
+        "arity": 3,
+        "flat": "transcript/absorb",
+        "kind": "private"
+      },
+      "absorb-nonce": {
+        "arity": 2,
+        "flat": "transcript/absorb-nonce",
+        "kind": "read-only"
+      },
+      "absorb-qm31": {
+        "arity": 2,
+        "flat": "transcript/absorb-qm31",
+        "kind": "read-only"
+      },
+      "absorb-root": {
+        "arity": 2,
+        "flat": "transcript/absorb-root",
+        "kind": "read-only"
+      },
+      "absorb-root-step": {
+        "arity": 2,
+        "flat": "transcript/absorb-root-step",
+        "kind": "private"
+      },
+      "absorb-roots": {
+        "arity": 2,
+        "flat": "transcript/absorb-roots",
+        "kind": "read-only"
+      },
+      "pow-ok": {
+        "arity": 3,
+        "flat": "transcript/pow-ok",
+        "kind": "read-only"
+      },
+      "read-u128-be": {
+        "arity": 1,
+        "flat": "transcript/read-u128-be",
+        "kind": "private"
+      },
+      "squeeze-m31": {
+        "arity": 1,
+        "flat": "transcript/squeeze-m31",
+        "kind": "read-only"
+      },
+      "squeeze-qm31": {
+        "arity": 1,
+        "flat": "transcript/squeeze-qm31",
+        "kind": "read-only"
+      },
+      "transcript-init": {
+        "arity": 1,
+        "flat": "transcript/transcript-init",
+        "kind": "read-only"
+      }
+    }
+  },
+  "gearOrder": [
+    "field",
+    "qm31",
+    "cair",
+    "cdeep",
+    "merkle",
+    "commit",
+    "fri",
+    "query",
+    "transcript",
+    "schedule",
+    "driver"
+  ],
+  "generator": "tools/flatten.py v1.0",
+  "inputs": {
+    "cair": {
+      "path": "contracts/full/cair.clar",
+      "sha256": "614343349d0dd4c943970b9af8cf6eca769e02001a81433cee18f09b4118373b"
+    },
+    "cdeep": {
+      "path": "contracts/full/cdeep.clar",
+      "sha256": "11e59184e1ff493f85427fecf74309d924457c3c9ef13b1836776dd45015eb4c"
+    },
+    "commit": {
+      "path": "contracts/full/commit.clar",
+      "sha256": "5cd241400e834154919102d526ff3dcd33a532800534896671beaa60e556bb15"
+    },
+    "driver": {
+      "path": "contracts/full/driver.clar",
+      "sha256": "9a81b403035bdda8e869493bec3f9d8d57a6ae91351dca6476eae4f2187ffabf"
+    },
+    "field": {
+      "path": "contracts/full/field.clar",
+      "sha256": "b2bce5f54585f5603e33860a1bcf0d303aa875173fbd7d8fe8450ac6cca0d37b"
+    },
+    "fri": {
+      "path": "contracts/full/fri.clar",
+      "sha256": "10ae1d54dd7755aba020ae2c9fe5943174c3725aac63859d8c4640822dd7456a"
+    },
+    "merkle": {
+      "path": "contracts/full/merkle.clar",
+      "sha256": "590ea6b06e1a44233aabd38849a1743a19c50b06ce6d76570fa1f6f357ba93a5"
+    },
+    "qm31": {
+      "path": "contracts/full/qm31.clar",
+      "sha256": "3f5cd53fff7daec502c5f3985821e63219b82fb3e8c84c5908a7b2998aa3ef8f"
+    },
+    "query": {
+      "path": "contracts/full/query.clar",
+      "sha256": "c60a53f3da020028e62e1ea9cc06ff495a7796ad9ecdc1320666935bcf9313df"
+    },
+    "schedule": {
+      "path": "contracts/full/schedule.clar",
+      "sha256": "88eb24c5d19f3b6b27c4579028e10f2705a7bbd706fbccdac4e8cde046d03169"
+    },
+    "transcript": {
+      "path": "contracts/full/transcript.clar",
+      "sha256": "5ed0983ac8f4f151837b2950c3c6bbd7561c31278d953ef3be5b81a6a6c0fa45"
+    }
+  },
+  "m2Notes": [
+    "schedule's (list 32 uint) idx cap is smaller than the ~96 queries provable parameters need; derive every list cap from the params record in M2.",
+    "gen_fullsize.py's single-let sequential unrolling and per-layer chunking are the template idiom for the M2 driver cascade.",
+    "M2 ordering (founder-confirmed pending): full-size Rust prover and fixture pipeline (extend interop prove.rs) BEFORE the parametric generator; hint-checked inverses change the proof wire format."
+  ],
+  "m2ParameterSpans": [
+    {
+      "byteEnd": 3510,
+      "byteStart": 3473,
+      "gear": "query",
+      "kind": "constant",
+      "name": "DOMAIN_SIZE",
+      "note": "toy LDE coset size 2^L; production ~2^17"
+    },
+    {
+      "byteEnd": 3621,
+      "byteStart": 3592,
+      "gear": "query",
+      "kind": "constant",
+      "name": "HALF",
+      "note": "DOMAIN_SIZE / 2, the half-coset size"
+    },
+    {
+      "byteEnd": 3714,
+      "byteStart": 3677,
+      "gear": "query",
+      "kind": "constant",
+      "name": "CM_POW_BOUND",
+      "note": "must stay >= HALF"
+    },
+    {
+      "byteEnd": 3874,
+      "byteStart": 3787,
+      "gear": "query",
+      "kind": "constant",
+      "name": "CM_STEPS",
+      "note": "ceil(log2(HALF)) unrolled square-and-multiply bits"
+    },
+    {
+      "byteEnd": 4063,
+      "byteStart": 4006,
+      "gear": "query",
+      "kind": "constant",
+      "name": "OFF",
+      "note": "canonic coset shift G^(2^26) at L=4; derive from params"
+    },
+    {
+      "byteEnd": 4143,
+      "byteStart": 4086,
+      "gear": "query",
+      "kind": "constant",
+      "name": "H",
+      "note": "half-coset step G^(2^28) at L=4; derive from params"
+    },
+    {
+      "byteEnd": null,
+      "byteStart": null,
+      "gear": "query",
+      "kind": null,
+      "name": "BITREV4",
+      "note": "width-L bit-reversal literal; a 2^17-entry table is infeasible, compute bitrev at production size (absorbed at this point)"
+    },
+    {
+      "byteEnd": 6691,
+      "byteStart": 6474,
+      "gear": "query",
+      "kind": "read-only",
+      "name": "bitrev",
+      "note": "lookup-based; must become computed at production size"
+    },
+    {
+      "byteEnd": 1837,
+      "byteStart": 1814,
+      "gear": "schedule",
+      "kind": "constant",
+      "name": "N",
+      "note": "query count; ~96 at provable parameters"
+    },
+    {
+      "byteEnd": 1948,
+      "byteStart": 1925,
+      "gear": "schedule",
+      "kind": "constant",
+      "name": "L",
+      "note": "FRI commitment count; grows with depth at production"
+    },
+    {
+      "byteEnd": 2667,
+      "byteStart": 2630,
+      "gear": "schedule",
+      "kind": "constant",
+      "name": "DOMAIN_SIZE",
+      "note": "query-index modulus, coupled to query gear"
+    },
+    {
+      "byteEnd": 2916,
+      "byteStart": 2846,
+      "gear": "schedule",
+      "kind": "constant",
+      "name": "POW_THRESHOLD",
+      "note": "2^(128 - pow_bits)"
+    },
+    {
+      "byteEnd": 3062,
+      "byteStart": 2942,
+      "gear": "schedule",
+      "kind": "constant",
+      "name": "QUERY_COUNTER",
+      "note": "length-N counter list"
+    },
+    {
+      "byteEnd": 3833,
+      "byteStart": 3386,
+      "gear": "schedule",
+      "kind": "private",
+      "name": "fri-beta-step",
+      "note": "(list 32 ...) betas cap; derive from params"
+    },
+    {
+      "byteEnd": 4335,
+      "byteStart": 4041,
+      "gear": "schedule",
+      "kind": "private",
+      "name": "query-idx-step",
+      "note": "(list 32 uint) idx cap is SMALLER than the ~96 production queries; MUST derive from params"
+    },
+    {
+      "byteEnd": 3187,
+      "byteStart": 3155,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "SX",
+      "note": "trace step x; == H.re at the toy point"
+    },
+    {
+      "byteEnd": 3220,
+      "byteStart": 3188,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "SY",
+      "note": "trace step y; == H.im at the toy point"
+    },
+    {
+      "byteEnd": 3425,
+      "byteStart": 3390,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "SEL_A",
+      "note": "pair-vanishing selector line through P6,P7"
+    },
+    {
+      "byteEnd": 3461,
+      "byteStart": 3426,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "SEL_B",
+      "note": "pair-vanishing selector line through P6,P7"
+    },
+    {
+      "byteEnd": 3497,
+      "byteStart": 3462,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "SEL_C",
+      "note": "pair-vanishing selector line through P6,P7"
+    },
+    {
+      "byteEnd": 3624,
+      "byteStart": 3589,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "B01_A",
+      "note": "boundary pair-vanishing line through P0,P1"
+    },
+    {
+      "byteEnd": 3659,
+      "byteStart": 3625,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "B01_B",
+      "note": "boundary pair-vanishing line through P0,P1"
+    },
+    {
+      "byteEnd": 3695,
+      "byteStart": 3660,
+      "gear": "cair",
+      "kind": "constant",
+      "name": "B01_C",
+      "note": "boundary pair-vanishing line through P0,P1"
+    },
+    {
+      "byteEnd": 6243,
+      "byteStart": 6085,
+      "gear": "cair",
+      "kind": "read-only",
+      "name": "coset-vanish",
+      "note": "two lifted qpi doublings = log(TRACE_ROWS)-1"
+    },
+    {
+      "byteEnd": 5650,
+      "byteStart": 5223,
+      "gear": "cair",
+      "kind": "read-only",
+      "name": "mask-point",
+      "note": "k<3 unrolled mask chain"
+    },
+    {
+      "byteEnd": 2616,
+      "byteStart": 2584,
+      "gear": "cdeep",
+      "kind": "constant",
+      "name": "SX",
+      "note": "own copy of the trace step (own-G precedent)"
+    },
+    {
+      "byteEnd": 2710,
+      "byteStart": 2678,
+      "gear": "cdeep",
+      "kind": "constant",
+      "name": "SY",
+      "note": "own copy of the trace step (own-G precedent)"
+    },
+    {
+      "byteEnd": 8492,
+      "byteStart": 6334,
+      "gear": "cdeep",
+      "kind": "read-only",
+      "name": "deep-row",
+      "note": "gamma-power unroll g^0..g^6 and the 4-way comp packing"
+    },
+    {
+      "byteEnd": 3181,
+      "byteStart": 3151,
+      "gear": "driver",
+      "kind": "constant",
+      "name": "VERSION",
+      "note": "wire format version byte: 0x01 at the toy point (v1, no hints), 0x02 at the production point (v2)"
+    },
+    {
+      "byteEnd": 3539,
+      "byteStart": 3496,
+      "gear": "driver",
+      "kind": "constant",
+      "name": "PARAMS",
+      "note": "N, L, blowup, pow_bits, air_id bytes"
+    },
+    {
+      "byteEnd": 22702,
+      "byteStart": 14210,
+      "gear": "driver",
+      "kind": "read-only",
+      "name": "verify-query",
+      "note": "depth-4 paths, parent lengths 3/2/1, the unrolled circle+line fold cascade"
+    },
+    {
+      "byteEnd": 26874,
+      "byteStart": 22834,
+      "gear": "driver",
+      "kind": "private",
+      "name": "query-step",
+      "note": "(list 32 uint) idx read; proof-bundle list types"
+    },
+    {
+      "byteEnd": 33480,
+      "byteStart": 27343,
+      "gear": "driver",
+      "kind": "read-only",
+      "name": "verify",
+      "note": "N-query/L-root list types and the b0..b(L-1) / fr0..fr(L-1) env construction; tagged in M2 Task 11 because wire v2 re-shapes the sound entry point"
+    }
+  ],
+  "separator": "/",
+  "version": 1
+}

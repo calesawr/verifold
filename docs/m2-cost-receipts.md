@@ -238,3 +238,40 @@ pub='696e7465726f702d31'     total-args=  195963 bytes; largest arg bundles = 19
 pub='696e7465726f702d32'     total-args=  195963 bytes; largest arg bundles = 194585 bytes; margin to 1MB cap = 853991 bytes
 OK: every argument sits under the 1048576 byte Clarity value cap
 ```
+
+## Full artifact emission (Task 12, raw)
+
+Command: `python3 tools/flatten.py --point full` (repo root). Complete
+stdout, verbatim:
+
+```
+call-census (full, informational): {'field': 6, 'qm31': 95, 'merkle': 7, 'transcript': 19, 'commit': 9, 'fri': 107, 'query': 17, 'cdeep': 1, 'schedule': 2, 'cair': 2}
+list-covariance: checked=6 deferred-to-clarinet=4
+wrote /home/calesawr/verifold/contracts/full/field.clar
+wrote /home/calesawr/verifold/contracts/full/qm31.clar
+wrote /home/calesawr/verifold/contracts/full/cair.clar
+wrote /home/calesawr/verifold/contracts/full/cdeep.clar
+wrote /home/calesawr/verifold/contracts/full/merkle.clar
+wrote /home/calesawr/verifold/contracts/full/commit.clar
+wrote /home/calesawr/verifold/contracts/full/fri.clar
+wrote /home/calesawr/verifold/contracts/full/query.clar
+wrote /home/calesawr/verifold/contracts/full/transcript.clar
+wrote /home/calesawr/verifold/contracts/full/schedule.clar
+wrote /home/calesawr/verifold/contracts/full/driver.clar
+emit-stats: bytes=54928 functions=114 constants=41 gears=11 max-let-depth=9
+wrote /home/calesawr/verifold/tools/flat-manifest-full.json
+wrote /home/calesawr/verifold/contracts/verifold-flat-full.clar
+```
+
+Byte size on disk, verbatim:
+
+```
+54928 contracts/verifold-flat-full.clar
+```
+
+Comparison to the Task 3 receipts: the CAND_A cost shape spike predicted
+`artifact_bytes: 22147` (a shape signal from the synthetic value
+generator, explicitly not the real artifact); the real emitted flat full
+artifact measures 54,928 bytes, 2.48x the shape proxy and 67.0% of the
+80 KB assert (81,920 bytes), leaving 26,992 bytes of headroom. The Task 3
+prediction that the real artifact lands comfortably under 80 KB holds.
