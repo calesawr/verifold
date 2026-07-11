@@ -47,11 +47,19 @@ consumer rejects `/`: set `SEPARATOR = "--"` in tools/flatten.py, regenerate;
 the adapter follows the manifest automatically. The devnet smoke test exists
 to surface such a consumer inside M1.
 
-DEFERRAL (2026-07-10): Devnet smoke test deferred. Docker is unavailable in
-the WSL2 environment and cannot be provisioned at this time. The `/` separator
-is verified by `clarinet check` and the full simnet suite, but not yet by a
-live devnet node RPC call. The smoke must run on a provisioned Docker
-environment before any M2 deploy decision.
+DEVNET SMOKE PASSED (2026-07-11, Docker provisioned): all 12 contracts
+published to a local clarinet devnet (verifold-flat at block height 40), the
+node's `/v2/contracts/interface` endpoint serves all 92 functions with their
+`/` names, and a read-only call through the node RPC
+(`POST /v2/contracts/call-read/<deployer>/verifold-flat/field%2Fm31-add`
+with u2 and u3) returned `{"okay":true,"result":"0x01..05"}` (u5). The `/`
+separator survives a real node on the wire; the `--` fallback is not needed.
+Scope note, stated honestly: the Hiro stacks-blockchain-api could not run in
+this environment (with clarinet 3.19, api 9.0.0 crashes during the snapshot
+event import and api 8.15.4 cannot ingest the snapshot chain; see the comment
+in settings/Devnet.toml), so indexer-side handling of `/` names remains
+unverified. The node, clarinet check, the sdk simnet, and the RPC wire format
+all accept them.
 
 ## Production profile (deploy time only)
 

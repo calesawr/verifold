@@ -83,8 +83,15 @@ sbtc_balance = 1_000_000_000
 # btc_address: mjSrB3wS4xab3kYqFktwBzfTdPg367ZJ2d
 
 [devnet]
-disable_stacks_explorer = false
-disable_stacks_api = false
+# API and explorers disabled 2026-07-11 for the M1 devnet smoke: with
+# clarinet 3.19, the api:9.0.0 image (latest) dies during the snapshot
+# import-events load, and api:8.15.4 cannot ingest the snapshot chain
+# (DB missing parent block), so the node wedges on event delivery either
+# way. The smoke evidence comes from the node RPC at :20443 directly.
+# Revisit after a clarinet upgrade if the API is wanted on devnet.
+disable_stacks_explorer = true
+disable_stacks_api = true
+disable_bitcoin_explorer = true
 # disable_postgres = false
 # disable_bitcoin_explorer = true
 # working_dir = "tmp/devnet"
@@ -114,7 +121,10 @@ disable_stacks_api = false
 # bitcoin_node_image_url = "lncm/bitcoind:v27.2"
 # stacks_node_image_url = "ghcr.io/stacks-network/stacks-core:3.4.0.0.0-alpine"
 # stacks_signer_image_url = "ghcr.io/stacks-network/stacks-signer:3.4.0.0.0.0-alpine"
-# stacks_api_image_url = "hirosystems/stacks-blockchain-api:latest"
+# pinned to 8.15.4: the 9.0.0 image (tagged latest, published 2026-07-07)
+# dies during clarinet 3.19's import-events snapshot load (SIGKILL inside
+# the container), which silently wedges the whole devnet boot
+stacks_api_image_url = "hirosystems/stacks-blockchain-api:8.15.4"
 # stacks_explorer_image_url = "ghcr.io/stx-labs/explorer:latest"
 # bitcoin_explorer_image_url = "quay.io/hirosystems/bitcoin-explorer:devnet"
 # postgres_image_url = "postgres:alpine"
