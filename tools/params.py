@@ -31,6 +31,17 @@ FALLBACK_POINT = {"log_trace": 12, "log_blowup": 4, "n_queries": 23,
 POINTS = {"TOY_POINT": TOY_POINT, "CAND_A": CAND_A, "CAND_B": CAND_B,
           "CAND_C": CAND_C, "FALLBACK_POINT": FALLBACK_POINT}
 
+# PRODUCTION_POINT: the Stage 0 selection-rule winner. Rule: the cheapest
+# candidate that clears 96 conjectured bits (tools/soundness.py) with
+# headroom on measured runtime, measured read_length, the flattener's
+# 80 KB artifact assert, and Clarity's 1 MB value cap for the proof
+# argument. Raw numbers and the recorded reasoning:
+# docs/m2-cost-receipts.md (Stage 0 spike measurements, Selection).
+# FALLBACK_POINT stays named as the escape hatch if Stage 1 measurement
+# invalidates this choice.
+PRODUCTION_POINT = CAND_A
+POINTS["PRODUCTION_POINT"] = PRODUCTION_POINT
+
 # Legacy toy aliases (M1 import surface), single-sourced from TOY_POINT.
 LOG_DOMAIN = TOY_POINT["log_trace"] + TOY_POINT["log_blowup"]
 TRACE_ROWS = 2 ** TOY_POINT["log_trace"]

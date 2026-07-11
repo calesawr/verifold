@@ -60,10 +60,21 @@ def test_challenge_space_cap_binds():
     assert b["terms"]["applied_cap"] == "ood_term"
 
 
+def test_production_point_pinned_and_gated():
+    # Task 3 pin: the measured winner, one of the named candidates, and
+    # registered so --json PRODUCTION_POINT serves the Rust mirror
+    assert params.PRODUCTION_POINT in (params.CAND_A, params.CAND_B,
+                                       params.CAND_C, params.FALLBACK_POINT)
+    assert params.POINTS["PRODUCTION_POINT"] is params.PRODUCTION_POINT
+    b = soundness.bits(params.PRODUCTION_POINT)
+    assert b["conjectured"] >= 96
+
+
 TESTS = [test_toy_anchor_is_12, test_candidates_clear_96_conjectured,
          test_proven_below_conjectured_and_itemized,
          test_monotonic_in_queries_and_pow_bits,
-         test_challenge_space_cap_binds]
+         test_challenge_space_cap_binds,
+         test_production_point_pinned_and_gated]
 
 if __name__ == "__main__":
     for t in TESTS:
