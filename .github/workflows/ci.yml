@@ -130,6 +130,12 @@ jobs:
       - run: python3 tools/test_spans.py
       - run: python3 tools/test_flatten.py
       - run: python3 tools/test_flatten_check.py
+      - run: python3 tools/test_hints.py
+      - run: python3 tools/test_check_cost_gate.py
+      - run: python3 tools/test_proof_size.py
+      # params export drift guard: PRODUCTION_POINT must match the committed
+      # interop-side export, or the two params sources have drifted apart
+      - run: python3 tools/params.py --json PRODUCTION_POINT | diff - interop/params-full.json
       # pipefail so tee cannot mask a flatten failure
       - run: |
           set -o pipefail

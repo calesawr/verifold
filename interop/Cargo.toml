@@ -2,6 +2,7 @@
 name = "verifold-interop"
 version = "0.1.0"
 edition = "2021"
+default-run = "verifold-interop"
 
 # Stwo pinned to the EXACT commit the gear-6e design panel extracted (dev @ cca98119).
 # The `prover` feature enables the CPU backend (interpolation / twiddles).
