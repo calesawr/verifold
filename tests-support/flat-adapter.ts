@@ -27,8 +27,10 @@
 // no dead counter closures).
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, expect } from "vitest";
+import { cvToString } from "@stacks/transactions";
 
 const FLAT = process.env.VERIFOLD_FLAT === "1";
+const DIFF = process.env.VERIFOLD_DIFF === "1";
 
 type ManifestFn = { flat: string; kind: string; arity: number };
 type Manifest = {
@@ -71,7 +73,28 @@ function wrapSimnet(sim: any): any {
   const patched = (contract: string, fn: string, args: any[], sender: string) => {
     const entry = lookup(contract, fn);
     redirected += 1;
-    return orig(loadManifest().contract, entry.flat, args, sender);
+    if (!DIFF) {
+      return orig(loadManifest().contract, entry.flat, args, sender);
+    }
+    // differential mode: run BOTH sides, compare, return the gear result
+    let gearRes: any, gearErr: unknown, flatRes: any, flatErr: unknown;
+    let gearThrew = false, flatThrew = false;
+    try { gearRes = orig(contract, fn, args, sender); }
+    catch (e) { gearErr = e; gearThrew = true; }
+    try { flatRes = orig(loadManifest().contract, entry.flat, args, sender); }
+    catch (e) { flatErr = e; flatThrew = true; }
+    if (gearThrew !== flatThrew) {
+      throw new Error(`flat-adapter DIFF: abort mismatch on (${contract}, ${fn}): ` +
+        `gear ${gearThrew ? "aborted" : "returned"}, ` +
+        `flat ${flatThrew ? `aborted (${String(flatErr)})` : "returned"}`);
+    }
+    if (gearThrew) throw gearErr; // both aborted: preserve the reject channel
+    const g = cvToString(gearRes.result);
+    const f = cvToString(flatRes.result);
+    if (g !== f) {
+      throw new Error(`flat-adapter DIFF: value mismatch on (${contract}, ${fn}): ${g} vs ${f}`);
+    }
+    return gearRes;
   };
   // anti-vacuity: the suite is read-only end to end; any other entry point
   // appearing under flat mode means the equivalence claim is off the rails
@@ -82,14 +105,14 @@ function wrapSimnet(sim: any): any {
     get(target, prop, receiver) {
       if (prop === "__verifoldBase") return base;
       if (prop === "callReadOnlyFn") return patched;
-      if (prop === "callPublicFn") return forbidden("callPublicFn");
-      if (prop === "deployContract") return forbidden("deployContract");
+      if (FLAT && prop === "callPublicFn") return forbidden("callPublicFn");
+      if (FLAT && prop === "deployContract") return forbidden("deployContract");
       return Reflect.get(target, prop, receiver);
     },
   });
 }
 
-if (FLAT) {
+if (FLAT || DIFF) {
   beforeEach(() => {
     if (wrapped) return; // this module instance has already wrapped globalThis.simnet
     const sim: any = (globalThis as any).simnet;

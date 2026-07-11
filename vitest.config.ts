@@ -31,7 +31,8 @@ export default defineConfig({
     maxWorkers: 1,
     // flat mode fuzz loops (2000×3 ops) exceed the 5 s default on the 40 KB flat
     // artifact; 120 s keeps the wall-time check meaningful while not masking hangs.
-    testTimeout: process.env.VERIFOLD_FLAT === "1" ? 120_000 : undefined,
+    // diff mode runs both sides per call (~2x cost); 180 s covers the heaviest fixtures.
+    testTimeout: process.env.VERIFOLD_DIFF === "1" ? 180_000 : process.env.VERIFOLD_FLAT === "1" ? 120_000 : undefined,
     setupFiles: [
       vitestSetupFilePath,
       // flat-equivalence adapter: inert unless VERIFOLD_FLAT/VERIFOLD_DIFF is set
