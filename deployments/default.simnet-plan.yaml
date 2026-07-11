@@ -80,9 +80,29 @@ plan:
       path: contracts/cair.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
+      contract-name: field-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/field.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: qm31-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/qm31.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: cair-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/cair.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
       contract-name: cdeep
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/cdeep.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: cdeep-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/cdeep.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
       contract-name: merkle
@@ -93,6 +113,16 @@ plan:
       contract-name: commit
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/commit.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: merkle-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/merkle.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: commit-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/commit.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
       contract-name: fri
@@ -120,8 +150,38 @@ plan:
       path: contracts/driver.clar
       clarity-version: 3
     - transaction-type: emulated-contract-publish
+      contract-name: fri-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/fri.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: query-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/query.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: transcript-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/transcript.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: schedule-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/schedule.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: driver-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/full/driver.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
       contract-name: verifold-flat
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/verifold-flat.clar
+      clarity-version: 3
+    - transaction-type: emulated-contract-publish
+      contract-name: verifold-flat-full
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/verifold-flat-full.clar
       clarity-version: 3
     epoch: '3.1'
