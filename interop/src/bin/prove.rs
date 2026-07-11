@@ -145,6 +145,11 @@ fn main() {
     let n = point.domain_size();
     let rows = point.trace_rows();
     let n_layers = point.n_layers() as usize;
+    let dump_columns = std::env::args().any(|a| a == "--dump-columns");
+    if dump_columns {
+        assert!(!is_toy, "--dump-columns exports the production columns; use --point full");
+    }
+    let mut dump_per_pub = serde_json::Map::new();
     println!(
         "point: log_trace={} log_blowup={} n_queries={} pow_bits={} air_id={}",
         point.log_trace, point.log_blowup, point.n_queries, point.pow_bits, point.air_id
@@ -249,6 +254,12 @@ fn main() {
                 SecureField::from(qt) + alpha * SecureField::from(qb)
             })
             .collect();
+        if dump_columns {
+            dump_per_pub.insert(
+                hex::encode(pub_bytes),
+                serde_json::json!({ "ccol": ccol.iter().map(|v| limbs(*v)).collect::<Vec<_>>() }),
+            );
+        }
         let ctree = Tree::new(ccol.iter().map(|&v| leaf(v)).collect());
         let (zfelt, st) = squeeze_qm31(absorb(st, 0x01, &ctree.root()));
 
@@ -443,4 +454,13 @@ fn main() {
     let out = serde_json::to_string_pretty(&serde_json::json!(fixtures)).unwrap();
     std::fs::write(dest, out).unwrap();
     println!("wrote {dest}");
+    if dump_columns {
+        let cols = serde_json::json!({
+            "tcol": tcol.iter().map(|v| v.0).collect::<Vec<u32>>(),
+            "perPub": dump_per_pub,
+        });
+        std::fs::write("fixtures/columns-full.json", serde_json::to_string(&cols).unwrap())
+            .unwrap();
+        println!("wrote fixtures/columns-full.json");
+    }
 }

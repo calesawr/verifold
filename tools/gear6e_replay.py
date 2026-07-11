@@ -502,8 +502,238 @@ for q in H["queryIndices"]:
         "D0": denom_cm(Zood, px, py), "D1": denom_cm(Z1, px, py), "D2": denom_cm(Z2, px, py),
         "p0": H["P0col"][q], "v1": H["V1"][q >> 1], "v2": H["V2"][q >> 2], "v3": H["final"],
     }
-dest = sys.argv[1] if len(sys.argv) > 1 else "/tmp/gear6e-kats.json"
+_pos = [a for a in sys.argv[1:] if not a.startswith("--") and a not in ("toy", "full")]
+dest = _pos[0] if _pos else "/tmp/gear6e-kats.json"
 with open(dest, "w") as f:
     json.dump(out, f, indent=1, default=str)
 print(f"PHASE D: KATs exported to {dest}")
 print("ALL GEAR-6E REPLAY PHASES PASS")
+
+# ============ M2 FULL MODE: production wire-layer replay + KAT export ============
+# SCOPE (honest): at the production point this replay covers the WIRE LAYER and the
+# FOLD ARITHMETIC only. It consumes the trace and composition COLUMNS exported by the
+# Rust prover (interop/fixtures/columns-full.json, gitignored, regenerated on demand:
+#   cd interop && cargo run --release --bin prove -- --point full --dump-columns
+# ) and independently recomputes: both Merkle trees and roots, the full transcript
+# schedule (alpha, z, gamma, every beta, the pow check, the query indices), the DEEP
+# quotient column, the complete fold chains with hint checks, and the final value,
+# asserting every value equals the Rust fixture. The from-scratch interpolation and
+# the dim-membership gate remain TOY-ONLY; they re-ran above (module-level phases),
+# as this file's header requires. docs/m2-soundness.md discloses this scope split.
+
+
+def bitrev(i, log):
+    r = 0
+    for _ in range(log):
+        r = (r << 1) | (i & 1)
+        i >>= 1
+    return r
+
+
+def batch_minv(xs):
+    """Montgomery batch inversion in M31: one minv + 3n mults."""
+    pref = [1] * (len(xs) + 1)
+    for i, x in enumerate(xs):
+        pref[i + 1] = pref[i] * x % P
+    inv = minv(pref[-1])
+    out = [0] * len(xs)
+    for i in range(len(xs) - 1, -1, -1):
+        out[i] = pref[i] * inv % P
+        inv = inv * xs[i] % P
+    return out
+
+
+def batch_qinv(xs):
+    """Montgomery batch inversion in QM31 (one qinv total)."""
+    pref = [ONE] * (len(xs) + 1)
+    for i, x in enumerate(xs):
+        pref[i + 1] = qmul(pref[i], x)
+    inv = qinv(pref[-1])
+    out = [Z4] * len(xs)
+    for i in range(len(xs) - 1, -1, -1):
+        out[i] = qmul(pref[i], inv)
+        inv = qmul(inv, xs[i])
+    return out
+
+
+def fold_i(a, b, xinv, beta):
+    """fold with a PRECOMPUTED twiddle inverse (batch-inverted; hints are checked
+    separately against these same twiddles, never trusted for the chain itself)."""
+    return qadd(qadd(a, b), qmul(beta, qmulm(qsub(a, b), xinv)))
+
+
+def pim_iter(x, k):
+    for _ in range(k):
+        x = pim(x)
+    return x
+
+
+def tree_sibs(lv, idx):
+    """Bare sibling hashes leaf to root from a build_tree level list."""
+    return [lv[d][(idx >> d) ^ 1] for d in range(len(lv) - 1)]
+
+
+def run_full_replay():
+    import params as _pp
+    point = _pp.PRODUCTION_POINT
+    dv = _pp.derived(point)
+    log_d = point["log_trace"] + point["log_blowup"]
+    n = 2 ** log_d
+    half = n // 2
+    n_layers = log_d - 1
+    nq = point["n_queries"]
+    STEPf = cpow(G, 2 ** (31 - point["log_trace"]))
+    assert (STEPf[0], STEPf[1]) == (dv["SX"], dv["SY"]), "trace step matches the oracle"
+    # the FS-ordered LDE domain from the oracle's OFF/H (independent circle math)
+    off = (dv["OFF"]["re"], dv["OFF"]["im"])
+    hstep = (dv["H"]["re"], dv["H"]["im"])
+    dpts = [None] * n
+    cur = off
+    for i in range(half):
+        dpts[i] = cur
+        dpts[half + i] = conj_pt(cur)
+        cur = padd(cur, hstep)
+    fs_pts = [dpts[bitrev(q, log_d)] for q in range(n)]
+    assert all(fs_pts[2 * k][0] == fs_pts[2 * k + 1][0]
+               and fs_pts[2 * k][1] == (P - fs_pts[2 * k + 1][1]) % P
+               for k in range(half)), "FS adjacency = conjugate pairs at production size"
+
+    fixtures = json.load(open("interop/fixtures/rust-proofs-full.json"))
+    cols = json.load(open("interop/fixtures/columns-full.json"))
+    assert len(fixtures) == 3, "three production proofs"
+    Tc = cols["tcol"]
+    assert len(Tc) == n and all(0 <= v < P for v in Tc), "trace column shape"
+    PARAMSf = dv["PARAMS"]
+    kat = None
+
+    for f in fixtures:
+        pub = bytes.fromhex(f["pub"])
+        Cc = [tuple(v) for v in cols["perPub"][f["pub"]]["ccol"]]
+        assert len(Cc) == n, "composition column shape"
+
+        # ---- transcript: ctx (VERSION 0x02) -> alpha -> z -> gamma ----
+        s0 = sha(DOMAIN_LABEL + bytes([0x02]) + PARAMSf + sha(pub))
+        trace_lv = build_tree([leaf(qemb(v)) for v in Tc])
+        assert trace_lv[-1][0].hex() == f["traceRoot"], "trace root"
+        alpha, st = squeeze_qm31(absorb_root(s0, trace_lv[-1][0]))
+        comp_lv = build_tree([leaf(v) for v in Cc])
+        assert comp_lv[-1][0].hex() == f["compRoot"], "comp root"
+        zfelt, st = squeeze_qm31(absorb_root(st, comp_lv[-1][0]))
+        Zood = felt_to_point(zfelt)
+        assert on_circle_q(Zood), "z on the circle"
+        T0z, T1z, T2z = tuple(f["Tz"]), tuple(f["Tgz"]), tuple(f["Tg2z"])
+        Czs = [tuple(c) for c in f["Czs"]]
+        for v in (T0z, T1z, T2z, *Czs):
+            st = absorb_qm31(st, v)
+        gamma, st = squeeze_qm31(st)
+
+        # ---- the DEEP column from the exported columns (own formulas + batch inv) ----
+        Z1 = qpadd_base(Zood, STEPf)
+        Z2 = qpadd_base(Z1, STEPf)
+        g = [ONE]
+        for _ in range(6):
+            g.append(qmul(g[-1], gamma))
+        cf0 = [line_coeffs(Zood[1], v, w) for v, w in
+               [(T0z, g[0]), (Czs[0], g[3]), (Czs[1], g[4]),
+                (Czs[2], g[5]), (Czs[3], g[6])]]
+        cf1 = [line_coeffs(Z1[1], T1z, g[1])]
+        cf2 = [line_coeffs(Z2[1], T2z, g[2])]
+        dinv0 = batch_qinv([cemb(denom_cm(Zood, px, py)) for px, py in fs_pts])
+        dinv1 = batch_qinv([cemb(denom_cm(Z1, px, py)) for px, py in fs_pts])
+        dinv2 = batch_qinv([cemb(denom_cm(Z2, px, py)) for px, py in fs_pts])
+
+        def numer(cfs, fvals, py):
+            acc = Z4
+            for (a, b, c), fv in zip(cfs, fvals):
+                acc = qadd(acc, qsub(qmul(c, fv), qadd(qmulm(a, py), b)))
+            return acc
+
+        P0c = []
+        for q in range(n):
+            px, py = fs_pts[q]
+            f0 = [qemb(Tc[q]), qemb(Cc[q][0]), qemb(Cc[q][1]),
+                  qemb(Cc[q][2]), qemb(Cc[q][3])]
+            P0c.append(qadd(qadd(qmul(numer(cf0, f0, py), dinv0[q]),
+                                 qmul(numer(cf1, [qemb(Tc[q])], py), dinv1[q])),
+                            qmul(numer(cf2, [qemb(Tc[q])], py), dinv2[q])))
+
+        # ---- FRI: roots, betas, the complete fold chain with OWN twiddles ----
+        p0_lv = build_tree([leaf(v) for v in P0c])
+        assert p0_lv[-1][0].hex() == f["friRoots"][0], "fri root 0"
+        beta, st = squeeze_qm31(absorb_root(st, p0_lv[-1][0]))
+        betas = [beta]
+        tw = batch_minv([fs_pts[2 * k][1] for k in range(half)])
+        curL = [fold_i(P0c[2 * k], P0c[2 * k + 1], tw[k], beta) for k in range(half)]
+        line_layers, line_lvs = [], []
+        for l in range(1, n_layers):
+            lv = build_tree([leaf(v) for v in curL])
+            assert lv[-1][0].hex() == f["friRoots"][l], f"fri root {l}"
+            beta, st = squeeze_qm31(absorb_root(st, lv[-1][0]))
+            betas.append(beta)
+            line_layers.append(curL)
+            line_lvs.append(lv)
+            m_ = len(curL) // 2
+            tw = batch_minv([pim_iter(fs_pts[mm << (l + 1)][0], l - 1)
+                             for mm in range(m_)])
+            curL = [fold_i(curL[2 * mm], curL[2 * mm + 1], tw[mm], beta)
+                    for mm in range(m_)]
+        final = tuple(f["final"])
+        assert len(curL) == 2 and curL[0] == curL[1] == final, "constant terminal == final"
+
+        # ---- grind + query draw ----
+        s_fin = absorb_qm31(st, final)
+        nonce = bytes.fromhex(f["nonce"])
+        assert pow_val(s_fin, nonce) < dv["POW_THRESHOLD"], "pow grind"
+        st2 = absorb_nonce(s_fin, nonce)
+        qidx = []
+        for _ in range(nq):
+            v, st2 = squeeze_m31(st2)
+            qidx.append(v % n)
+        assert qidx == f["queryIndices"], "query indices"
+
+        # ---- per-query bundles: openings, sibs, and the v2 hints ----
+        for q, b in zip(qidx, f["bundles"]):
+            assert b["tX"] == [Tc[q], 0, 0, 0], f"tX at q={q}"
+            assert [s.hex() for s in tree_sibs(trace_lv, q)] == b["tSibs"], f"tSibs q={q}"
+            assert tuple(b["cX"]) == Cc[q], f"cX at q={q}"
+            assert [s.hex() for s in tree_sibs(comp_lv, q)] == b["cSibs"], f"cSibs q={q}"
+            assert tuple(b["p0Sib"]) == P0c[q ^ 1], f"p0Sib at q={q}"
+            assert [s.hex() for s in tree_sibs(p0_lv, q)[1:]] == b["p0Sibs"], f"p0Sibs q={q}"
+            for j in range(n_layers - 1):
+                k = q >> (j + 1)
+                lsj = b["lineSibs"][j]
+                assert tuple(lsj["sib"]) == line_layers[j][k ^ 1], f"line sib {j} q={q}"
+                assert [s.hex() for s in tree_sibs(line_lvs[j], k)[1:]] == lsj["sibs"], \
+                    f"line sibs {j} q={q}"
+            hints = b["hints"]
+            assert len(hints) == n_layers, f"hints length at q={q}"
+            assert hints[0] * fs_pts[q & ~1][1] % P == 1, f"hint 0 inverts y_q at q={q}"
+            for l in range(1, n_layers):
+                x_l = pim_iter(fs_pts[((q >> l) & ~1) << l][0], l - 1)
+                assert hints[l] * x_l % P == 1, f"hint {l} inverts x_{l} at q={q}"
+        print(f"FULL REPLAY pub={f['pub']!r}: transcript, trees, DEEP, {n_layers}-layer "
+              f"fold chain, and hints all match the Rust fixture")
+
+        if f["pub"] == "":
+            # the union KAT schema the plan header pins: betas carries ALL
+            # N_LAYERS betas in fold order, the OOD openings ride along
+            kat = {
+                "point": "PRODUCTION_POINT", "pub": f["pub"],
+                "ctx": (DOMAIN_LABEL + bytes([0x02]) + PARAMSf + sha(b"")).hex(),
+                "traceRoot": f["traceRoot"], "compRoot": f["compRoot"],
+                "alpha": alpha, "zfelt": zfelt, "zx": Zood[0], "zy": Zood[1],
+                "Tz": T0z, "Tgz": T1z, "Tg2z": T2z, "Czs": Czs,
+                "gamma": gamma, "friRoots": f["friRoots"], "betas": betas,
+                "final": final, "nonce": f["nonce"], "queryIndices": qidx,
+            }
+
+    with open("tools/kats-full.json", "w") as fh:
+        json.dump(kat, fh, indent=1, default=str)
+    print("FULL KATs exported to tools/kats-full.json")
+
+
+if "--point" in sys.argv:
+    _val = sys.argv[sys.argv.index("--point") + 1]
+    assert _val in ("toy", "full"), f"--point takes toy or full, got {_val}"
+    if _val == "full":
+        run_full_replay()

@@ -12,6 +12,7 @@ coverage
 costs-reports.json
 node_modules
 interop/target/
+interop/fixtures/columns-full.json
 
 # Local session handoff notes (never commit)
 handoff.md
