@@ -474,6 +474,14 @@ def test_production_demotes_verify_query():
     assert "(define-read-only (driver/verify" in flat  # the sound entry stays public
 
 
+def test_templated_toy_identity_all_gears():
+    # M2 templating stage: at the toy point the templated source of every
+    # gear is byte-identical to the checked-in gear file.
+    for name in flatten.GEAR_ORDER:
+        text, _missing = flatten.templated_gear(name, "toy")
+        assert text == flatten.read_gear(name), name
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -524,6 +532,7 @@ TESTS = [
     test_mutation_edit_flips_only_the_target_literal,
     test_mutation_edit_unknown_gear_raises_flatten_error,
     test_production_demotes_verify_query,
+    test_templated_toy_identity_all_gears,
 ]
 
 if __name__ == "__main__":

@@ -118,6 +118,49 @@ def read_gear(name):
         return fh.read()
 
 
+POINT_NAMES = ("toy", "full")
+
+
+def resolve_point(point_name):
+    import params
+    return {"toy": params.TOY_POINT, "full": params.PRODUCTION_POINT}[point_name]
+
+
+def templated_gear(name, point_name):
+    """M2 templating stage: re-render this gear's m2ParameterSpans at the
+    point. Returns (source_text, missing) where missing lists spans that have
+    no template yet. At the toy point every render MUST equal the existing
+    bytes (the byte-identity gate, enforced here so a template regression
+    fails the build itself, not just the drift diff)."""
+    src = read_gear(name)
+    base = Gear(name, src)
+    import spans
+    point = resolve_point(point_name)
+    edits, missing = [], []
+    for gear_name, def_name, _note in M2_SPAN_ROLES:
+        if gear_name != name:
+            continue
+        d = base.defs.get(def_name)
+        if d is None:
+            raise FlattenError(f"{name}: span {def_name} missing from source; "
+                               "M2_SPAN_ROLES and the gear drifted apart")
+        try:
+            rendered = spans.render_span(name, def_name, point).decode("utf-8")
+        except NotImplementedError:
+            missing.append(f"{name}/{def_name}")
+            continue
+        if point_name == "toy" and rendered != src[d.start:d.end]:
+            raise FlattenError(
+                f"toy byte-identity broken: {name}/{def_name} renders "
+                f"{rendered[:60]!r}... but the gear pins "
+                f"{src[d.start:d.end][:60]!r}...")
+        edits.append((d.start, d.end, rendered))
+    out = apply_edits(src, edits)
+    if point_name == "toy" and out != src:
+        raise FlattenError(f"{name}: toy templating changed bytes outside spans")
+    return out, missing
+
+
 # ---------------- Stage 2: parse tree and symbol tables ----------------
 
 class Node:
@@ -574,11 +617,13 @@ def check_collisions(gears):
                 f"top-level names: {sorted(bad)}")
 
 
-def check_math_anchor(by_name):
+def check_math_anchor(by_name, point=None):
     """Stage 3 math anchor: computed-equals-pinned at the toy point, so the
     constants are certified against the circle math, not just each other."""
     import params
-    d = params.derived()
+    if point is None:
+        point = params.TOY_POINT
+    d = params.derived(point)
 
     def cval(gear, name):
         return by_name[gear].defs[name].value
@@ -655,12 +700,17 @@ def check_list_covariance(by_name, all_sites):
     return checked, skipped
 
 
-def check_coupled_constants(by_name):
+def check_coupled_constants(by_name, point=None):
     """The Stage 3 tripwire: duplicated constants are KEPT (never deduped,
     the qm31 sync test requires both copies) but must stay value-equal;
     driver PARAMS must stay consistent with schedule's constants; and
     get-params must serve exactly those constants by direct reference, so
     the constant checks are checks on what get-params actually returns."""
+    if point is None:
+        import params as _params
+        point = _params.TOY_POINT
+    trace_rows = 2 ** point["log_trace"]
+
     def const(gear, name):
         d = by_name[gear].defs.get(name)
         if d is None or d.kind != "constant":
@@ -686,9 +736,10 @@ def check_coupled_constants(by_name):
         raise FlattenError(f"tripwire: PARAMS N byte {params[0]} != schedule N {n}")
     if params[1] != l:
         raise FlattenError(f"tripwire: PARAMS L byte {params[1]} != schedule L {l}")
-    if domain != 8 * params[2]:
+    if domain != trace_rows * params[2]:
         raise FlattenError(
-            f"tripwire: DOMAIN_SIZE {domain} != trace-rows(8) * blowup byte {params[2]}")
+            f"tripwire: DOMAIN_SIZE {domain} != trace-rows({trace_rows}) "
+            f"* blowup byte {params[2]}")
     if pow_threshold != 2 ** (128 - params[3]):
         raise FlattenError(
             f"tripwire: POW_THRESHOLD != 2^(128 - pow_bits byte {params[3]})")
@@ -905,9 +956,18 @@ def print_stats(flat, gears):
 
 # ---------------- driver ----------------
 
-def build(names):
-    """Parse, self-check, and classify the requested gears."""
-    gears = [Gear(n, read_gear(n)) for n in names]
+def build(names, point_name="toy"):
+    """Parse, self-check, and classify the requested gears at a point."""
+    sources, all_missing = {}, []
+    for n in names:
+        text, missing = templated_gear(n, point_name)
+        sources[n] = text
+        all_missing.extend(missing)
+    if point_name == "full" and all_missing:
+        raise NotImplementedError(
+            "full emission blocked; spans without templates: "
+            + ", ".join(sorted(all_missing)))
+    gears = [Gear(n, sources[n]) for n in names]
     by_name = {g.name: g for g in gears}
     for g in gears:
         if reemit(g.src, g.tokens) != g.src:
@@ -917,8 +977,8 @@ def build(names):
         all_sites = [s for g in gears for s in g.analysis.call_sites]
         check_call_sites(by_name, all_sites)
         check_collisions(gears)
-        check_coupled_constants(by_name)
-        check_math_anchor(by_name)
+        check_coupled_constants(by_name, resolve_point(point_name))
+        check_math_anchor(by_name, resolve_point(point_name))
         checked, skipped = check_list_covariance(by_name, all_sites)
         print(f"list-covariance: checked={checked} deferred-to-clarinet={skipped}")
     return gears, by_name
@@ -929,7 +989,7 @@ def parse_args(argv):
             "out": os.path.join(REPO_ROOT, "contracts", "verifold-flat.clar"),
             "out_given": False,
             "manifest": os.path.join(REPO_ROOT, "tools", "flat-manifest.json"),
-            "mutate": None, "production": False}
+            "mutate": None, "production": False, "point": "toy"}
     it = iter(argv)
     for arg in it:
         if arg == "--gears":
@@ -943,9 +1003,20 @@ def parse_args(argv):
             opts["mutate"] = next(it)
         elif arg == "--production":
             opts["production"] = True
+        elif arg == "--point":
+            opts["point"] = next(it)
+            if opts["point"] not in POINT_NAMES:
+                raise SystemExit(f"--point must be one of {POINT_NAMES}")
         else:
             raise SystemExit(f"unknown option {arg}")
     return opts
+
+
+def emit_full(gears, by_name, opts):
+    """Production emission profile. Lands in Task 12."""
+    raise NotImplementedError(
+        "full emission lands in Task 12 (contracts/full/, "
+        "contracts/verifold-flat-full.clar, tools/flat-manifest-full.json)")
 
 
 def main(argv):
@@ -955,7 +1026,13 @@ def main(argv):
     if unknown:
         raise SystemExit(f"unknown gears: {unknown}")
     names = [n for n in GEAR_ORDER if n in names]  # always emit in deploy order
-    gears, by_name = build(names)
+    if opts["point"] == "full" and opts["production"]:
+        raise SystemExit("--point full is exclusive with --production "
+                         "(the deployable full profile is M3 work)")
+    gears, by_name = build(names, opts["point"])
+    if opts["point"] == "full":
+        emit_full(gears, by_name, opts)
+        return
     extra = {}
     if opts["mutate"]:
         gname, edit = mutation_edit(by_name, opts["mutate"])
