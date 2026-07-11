@@ -1,12 +1,16 @@
-//! Gear 6f phase 2: the Rust mini-prover.
+//! Gear 6f phase 2: the Rust mini-prover, parametric over the params.rs points (M2).
 //!
 //! Produces complete Verifold proofs where every ALGEBRAIC stage is computed by STWO'S OWN
-//! FUNCTIONS (interpolate, eval_at_point, accumulate_row_quotients, fold_circle_into_line,
-//! fold_line) and only the wire layer -- the sha256 duplex transcript and the sha256 Merkle
-//! trees, the documented CAIR-2/CAIR-6 deviation surface -- is Verifold's, implemented here a
-//! THIRD time (sha2 crate; the others are Clarity's native sha256 and Python hashlib).
-//! Output: proof JSON fixtures consumed by tests/interop.test.ts and fed to driver.clar verify()
-//! on simnet -- a Rust-proven, Clarity-verified circle STARK.
+//! FUNCTIONS (interpolate, evaluate, eval_at_point, accumulate_row_quotients,
+//! fold_circle_into_line, fold_line) and only the wire layer (the sha256 duplex transcript
+//! and the sha256 Merkle trees) is Verifold's, implemented here a THIRD time.
+//!
+//! --point toy  (default): the frozen M1 wire (VERSION 0x01), byte-identical output to
+//!                         fixtures/rust-proofs.json. The regression gate for this refactor.
+//! --point full          : the pinned PRODUCTION_POINT, fixtures/rust-proofs-full.json.
+#[path = "../params.rs"]
+mod params;
+
 use sha2::{Digest, Sha256};
 use stwo::core::circle::CirclePoint;
 use stwo::core::fields::m31::{BaseField, M31};
@@ -24,13 +28,18 @@ use stwo::prover::poly::circle::CircleEvaluation;
 use stwo::prover::poly::BitReversedOrder;
 
 const P: u64 = (1 << 31) - 1;
-const FIB: [u32; 8] = [1, 1, 2, 3, 5, 8, 13, 21];
-// the pinned pair-vanishing lines (cair.clar constants; cross-derived by three implementations)
-const SEL: [u32; 3] = [1569360727, 1569360727, 2147450879];
-const B01: [u32; 3] = [1569360727, 578122920, 2147450879];
-const STEP: (u32, u32) = (32768, 2147450879);
 const DOMAIN_LABEL: &[u8] = b"verifold-fs-v1";
-const PARAMS: [u8; 8] = [0x04, 0x03, 0x02, 0x08, 0x00, 0x00, 0x00, 0x0a];
+// TEST-ONLY regression anchors. The proving path derives everything from the point; at
+// the toy point the derivations must reproduce these pinned values exactly (asserted in
+// main) or the refactor changed the math.
+const TCOL_TOY_PINNED: [u32; 16] = [
+    1474792818, 2090559570, 1412110383, 301516140, 1024007725, 235835508, 383859787,
+    1667252711, 1164904959, 1218263045, 955580029, 543104401, 1293186474, 644759033,
+    881492467, 1888644234,
+];
+const SEL_TOY: [u32; 3] = [1569360727, 1569360727, 2147450879];
+const B01_TOY: [u32; 3] = [1569360727, 578122920, 2147450879];
+const STEP_TOY: (u32, u32) = (32768, 2147450879);
 
 fn m(v: u32) -> BaseField {
     M31::from_u32_unchecked(v)
@@ -117,75 +126,127 @@ fn jq(v: SecureField) -> serde_json::Value {
     serde_json::json!(limbs(v))
 }
 
+fn parse_point() -> params::Point {
+    let args: Vec<String> = std::env::args().collect();
+    match args.iter().position(|a| a == "--point") {
+        None => params::TOY,
+        Some(i) => match args.get(i + 1).map(|s| s.as_str()) {
+            Some("toy") => params::TOY,
+            Some("full") => params::FULL,
+            other => panic!("--point takes toy or full, got {other:?}"),
+        },
+    }
+}
+
 fn main() {
+    let point = parse_point();
+    let is_toy = point == params::TOY;
+    let log_d = point.log_domain();
+    let n = point.domain_size();
+    let rows = point.trace_rows();
+    let n_layers = point.n_layers() as usize;
+    println!(
+        "point: log_trace={} log_blowup={} n_queries={} pow_bits={} air_id={}",
+        point.log_trace, point.log_blowup, point.n_queries, point.pow_bits, point.air_id
+    );
+
     let pubs: Vec<&[u8]> = vec![b"", b"interop-1", b"interop-2"];
     let mut fixtures = vec![];
 
-    // pub-independent setup: the trace, its Stwo interpolation, the domain
-    let lde = CanonicCoset::new(4).circle_domain();
+    // pub-independent setup: the LDE domain, FS-ordered points, the trace coset
+    let lde = CanonicCoset::new(log_d).circle_domain();
     let qp: Vec<CirclePoint<BaseField>> =
-        (0..16).map(|qi| lde.at(bit_reverse_index(qi, 4))).collect();
-    // the honest trace column: the unique dim-8 interpolant through fib on the trace coset,
-    // evaluated on the LDE -- recovered HERE via Stwo by interpolating an evaluation we build
-    // from the coset rows using the size-8 domain... simplest faithful route: take the 16 LDE
-    // values from the dim-8 space by interpolating the size-8 circle-domain restriction.
-    // The trace coset odds(3) IS NOT the size-8 circle domain, so we solve it the other way:
-    // interpolate the size-16 column whose values we derive from the row constraints is
-    // circular. Instead: build the dim-8 polynomial by interpolating over the SIZE-8 circle
-    // domain values of T, which we obtain from the cross-checked size-16 column.
-    // (Tcol is pub-independent and was verified against Stwo in phase 1, B1-B4.)
-    let tcol_u32: [u32; 16] = [
-        1474792818, 2090559570, 1412110383, 301516140, 1024007725, 235835508, 383859787,
-        1667252711, 1164904959, 1218263045, 955580029, 543104401, 1293186474, 644759033,
-        881492467, 1888644234,
-    ];
-    let tvals: Vec<BaseField> = tcol_u32.iter().map(|&v| m(v)).collect();
-    let tpoly =
-        CircleEvaluation::<CpuBackend, BaseField, BitReversedOrder>::new(lde, tvals).interpolate();
-    // sanity: rows + degree (the dim-8 membership: coefficients above 8 vanish)
-    let trace_coset = CanonicCoset::new(3).coset();
-    for k in 0..8 {
+        (0..n).map(|qi| lde.at(bit_reverse_index(qi, log_d))).collect();
+    let trace_coset = CanonicCoset::new(point.log_trace).coset();
+    let tdom = CanonicCoset::new(point.log_trace).circle_domain();
+    let s_pt = trace_coset.step;
+
+    // the honest trace: t[0]=t[1]=1, t[k]=t[k-1]+t[k-2] mod p over 2^log_trace rows.
+    // interp_rot(r) interpolates the rows rotated by r; rotation by the coset step maps
+    // the circle FFT space to itself, so this IS the shifted polynomial T(. + rS).
+    let t = params::fib_column(rows);
+    let interp_rot = |r: usize| {
+        let mut vals = vec![m(0); rows];
+        for k in 0..rows {
+            let i = params::coset_index_to_domain_index(k, point.log_trace);
+            vals[bit_reverse_index(i, point.log_trace)] = m(t[(k + r) % rows]);
+        }
+        CircleEvaluation::<CpuBackend, BaseField, BitReversedOrder>::new(tdom, vals).interpolate()
+    };
+    let tpoly = interp_rot(0);
+    let t1poly = interp_rot(1);
+    let t2poly = interp_rot(2);
+    // sanity: sampled rows carry the recurrence values, and the rotation identity holds
+    // at an OFF-COSET probe (a wrong shifted column would also break the honest-terminal
+    // assert below, since the DEEP quotient would leave the low-degree space)
+    for k in [0usize, 1, 2, rows / 2, rows - 2, rows - 1] {
         assert_eq!(
             tpoly.eval_at_point(trace_coset.at(k).into_ef()),
-            SecureField::from(m(FIB[k])),
+            SecureField::from(m(t[k])),
             "trace row {k}"
         );
     }
-    let s_pt = CirclePoint::<BaseField> { x: m(STEP.0), y: m(STEP.1) };
+    let probe = lde.at(0).into_ef();
+    assert_eq!(
+        t1poly.eval_at_point(probe),
+        tpoly.eval_at_point(probe + s_pt.into_ef()),
+        "rotation identity T1 == T(.+S) off the coset"
+    );
+    assert_eq!(
+        t2poly.eval_at_point(probe),
+        tpoly.eval_at_point(probe + s_pt.into_ef() + s_pt.into_ef()),
+        "rotation identity T2 == T(.+2S) off the coset"
+    );
+    // FS-ordered LDE columns (BitReversedOrder storage == FS order)
+    let tcol: Vec<BaseField> = tpoly.evaluate(lde).values;
+    let t1col: Vec<BaseField> = t1poly.evaluate(lde).values;
+    let t2col: Vec<BaseField> = t2poly.evaluate(lde).values;
+    if is_toy {
+        let got: Vec<u32> = tcol.iter().map(|v| v.0).collect();
+        assert_eq!(got, TCOL_TOY_PINNED.to_vec(), "derived toy trace column == the 16 pinned values");
+        assert_eq!((s_pt.x.0, s_pt.y.0), STEP_TOY, "derived S == the pinned STEP");
+    }
+
+    // the pair-vanishing lines, derived from the trace coset: SEL kills the transition
+    // constraint on the last two rows, B01 divides the boundary constraint on rows 0, 1
+    let lc = |e0: CirclePoint<BaseField>, e1: CirclePoint<BaseField>| -> [u32; 3] {
+        [(e0.y - e1.y).0, (e1.x - e0.x).0, (e0.x * e1.y - e1.x * e0.y).0]
+    };
+    let sel = lc(trace_coset.at(rows - 2), trace_coset.at(rows - 1));
+    let b01 = lc(trace_coset.at(0), trace_coset.at(1));
+    if is_toy {
+        assert_eq!(sel, SEL_TOY, "derived SEL == the cair.clar pin");
+        assert_eq!(b01, B01_TOY, "derived B01 == the cair.clar pin");
+    }
     let one = SecureField::from(m(1));
 
     for pub_bytes in pubs {
         // ---- ctx + trace commit -> alpha ----
-        let ctx = [DOMAIN_LABEL, &[0x01], &PARAMS, &sha(&[pub_bytes])].concat();
+        let ctx =
+            [DOMAIN_LABEL, &[0x01u8], &point.params_bytes()[..], &sha(&[pub_bytes])].concat();
         let s0 = sha(&[&ctx]);
-        let ttree = Tree::new(
-            tcol_u32.iter().map(|&v| leaf(SecureField::from(m(v)))).collect(),
-        );
+        let ttree = Tree::new(tcol.iter().map(|&v| leaf(SecureField::from(v))).collect());
         let (alpha, st) = squeeze_qm31(absorb(s0, 0x01, &ttree.root()));
 
-        // ---- the composition column (the cair formula over Stwo ops) ----
-        let line = |c: [u32; 3], p: CirclePoint<SecureField>| -> SecureField {
-            p.x * m(c[0]) + p.y * m(c[1]) + SecureField::from(m(c[2]))
+        // ---- the composition column (the cair formula, base-field ops per FS index) ----
+        let line_m = |c: [u32; 3], p: CirclePoint<BaseField>| -> BaseField {
+            p.x * m(c[0]) + p.y * m(c[1]) + m(c[2])
         };
-        let piq = |v: SecureField| v * v + v * v - one;
-        let compose = |t0: SecureField, t1: SecureField, t2: SecureField,
-                       zp: CirclePoint<SecureField>|
-         -> SecureField {
-            let qt = (t2 - t1 - t0) * line(SEL, zp) * piq(piq(zp.x)).inverse();
-            let qb = (t0 - one) * line(B01, zp).inverse();
-            qt + alpha * qb
+        let pim = |x: BaseField| x * x + x * x - m(1);
+        let vanish = |x: BaseField| {
+            let mut v = x;
+            for _ in 0..(point.log_trace - 1) {
+                v = pim(v);
+            }
+            v
         };
-        let ccol: Vec<SecureField> = (0..16)
+        let ccol: Vec<SecureField> = (0..n)
             .map(|qi| {
-                let zp: CirclePoint<SecureField> = qp[qi].into_ef();
-                let z1 = zp + s_pt.into_ef();
-                let z2 = z1 + s_pt.into_ef();
-                compose(
-                    tpoly.eval_at_point(zp),
-                    tpoly.eval_at_point(z1),
-                    tpoly.eval_at_point(z2),
-                    zp,
-                )
+                let p = qp[qi];
+                let (t0, t1, t2) = (tcol[qi], t1col[qi], t2col[qi]);
+                let qt = (t2 - t1 - t0) * line_m(sel, p) * vanish(p.x).inverse();
+                let qb = (t0 - m(1)) * line_m(b01, p).inverse();
+                SecureField::from(qt) + alpha * SecureField::from(qb)
             })
             .collect();
         let ctree = Tree::new(ccol.iter().map(|&v| leaf(v)).collect());
@@ -214,9 +275,9 @@ fn main() {
         let (gamma, st) = squeeze_qm31(st);
 
         // ---- the DEEP column (Stwo accumulate_row_quotients) ----
-        let mut gp = vec![one];
+        let mut gpow = vec![one];
         for _ in 0..6 {
-            gp.push(*gp.last().unwrap() * gamma);
+            gpow.push(*gpow.last().unwrap() * gamma);
         }
         let nd = |col: usize, val: SecureField, w: SecureField| NumeratorData {
             column_index: col,
@@ -227,21 +288,21 @@ fn main() {
             ColumnSampleBatch {
                 point: z,
                 cols_vals_randpows: vec![
-                    nd(0, t0z, gp[0]),
-                    nd(1, czs[0], gp[3]),
-                    nd(2, czs[1], gp[4]),
-                    nd(3, czs[2], gp[5]),
-                    nd(4, czs[3], gp[6]),
+                    nd(0, t0z, gpow[0]),
+                    nd(1, czs[0], gpow[3]),
+                    nd(2, czs[1], gpow[4]),
+                    nd(3, czs[2], gpow[5]),
+                    nd(4, czs[3], gpow[6]),
                 ],
             },
-            ColumnSampleBatch { point: z1, cols_vals_randpows: vec![nd(0, t1z, gp[1])] },
-            ColumnSampleBatch { point: z2, cols_vals_randpows: vec![nd(0, t2z, gp[2])] },
+            ColumnSampleBatch { point: z1, cols_vals_randpows: vec![nd(0, t1z, gpow[1])] },
+            ColumnSampleBatch { point: z2, cols_vals_randpows: vec![nd(0, t2z, gpow[2])] },
         ];
         let consts = quotient_constants(&batches);
-        let p0col: Vec<SecureField> = (0..16)
+        let p0col: Vec<SecureField> = (0..n)
             .map(|qi| {
                 let row = [
-                    m(tcol_u32[qi]),
+                    tcol[qi],
                     m(limbs(ccol[qi])[0]),
                     m(limbs(ccol[qi])[1]),
                     m(limbs(ccol[qi])[2]),
@@ -251,34 +312,45 @@ fn main() {
             })
             .collect();
 
-        // ---- FRI: commit/fold via Stwo fold fns + our trees/transcript ----
+        // ---- FRI: p0 commit, then N_LAYERS-1 committed line layers, size-2 terminal ----
         let p0tree = Tree::new(p0col.iter().map(|&v| leaf(v)).collect());
-        let (beta0, st) = squeeze_qm31(absorb(st, 0x01, &p0tree.root()));
-        let v1 = fold_circle_into_line(&p0col, lde, beta0);
-        let v1tree = Tree::new(v1.iter().map(|&v| leaf(v)).collect());
-        let (beta1, st) = squeeze_qm31(absorb(st, 0x01, &v1tree.root()));
-        let ldom = LineDomain::new(lde.half_coset);
-        let (ldom2, v2) = fold_line(&v1, ldom, beta1);
-        let v2tree = Tree::new(v2.iter().map(|&v| leaf(v)).collect());
-        let (beta2, st) = squeeze_qm31(absorb(st, 0x01, &v2tree.root()));
-        let (_, v3) = fold_line(&v2, ldom2, beta2);
-        assert_eq!(v3[0], v3[1], "honest terminal must be constant");
-        let final_v = v3[0];
+        let (beta0, st_after_p0) = squeeze_qm31(absorb(st, 0x01, &p0tree.root()));
+        let mut st = st_after_p0;
+        let mut betas = vec![beta0];
+        let mut line_layers: Vec<Vec<SecureField>> = vec![];
+        let mut line_trees: Vec<Tree> = vec![];
+        let mut cur = fold_circle_into_line(&p0col, lde, beta0);
+        let mut ldom = LineDomain::new(lde.half_coset);
+        while cur.len() > 2 {
+            let tree = Tree::new(cur.iter().map(|&v| leaf(v)).collect());
+            let (beta, ns) = squeeze_qm31(absorb(st, 0x01, &tree.root()));
+            st = ns;
+            betas.push(beta);
+            let (nldom, next) = fold_line(&cur, ldom, beta);
+            line_layers.push(cur);
+            line_trees.push(tree);
+            ldom = nldom;
+            cur = next;
+        }
+        assert_eq!(cur.len(), 2, "terminal layer size 2");
+        assert_eq!(cur[0], cur[1], "honest terminal must be constant");
+        assert_eq!(betas.len(), n_layers, "one beta per FRI commitment");
+        let final_v = cur[0];
 
         // ---- grind + draw ----
         let s_fin = absorb(st, 0x03, &enc16(final_v));
         let mut nonce = [0u8; 8];
         for c in 0u32.. {
             nonce[4..].copy_from_slice(&c.to_be_bytes());
-            if pow_val(s_fin, &nonce) < (1u128 << 120) {
+            if pow_val(s_fin, &nonce) < point.pow_threshold() {
                 break;
             }
         }
         let mut s2 = absorb(s_fin, 0x05, &nonce);
         let mut qidx = vec![];
-        for _ in 0..4 {
+        for _ in 0..point.n_queries {
             let (v, ns) = squeeze_m31(s2);
-            qidx.push((v % 16) as usize);
+            qidx.push((v as u64 % n as u64) as usize);
             s2 = ns;
         }
 
@@ -287,41 +359,67 @@ fn main() {
         let bundles: Vec<serde_json::Value> = qidx
             .iter()
             .map(|&qi| {
-                let (k1, k2) = (qi >> 1, qi >> 2);
-                serde_json::json!({
-                    "tX": [tcol_u32[qi], 0, 0, 0],
+                let base = serde_json::json!({
+                    "tX": [tcol[qi].0, 0, 0, 0],
                     "tSibs": hexv(ttree.sibs(qi)),
                     "cX": limbs(ccol[qi]),
                     "cSibs": hexv(ctree.sibs(qi)),
                     "p0Sib": limbs(p0col[qi ^ 1]),
                     "p0Sibs": hexv(p0tree.sibs(qi)[1..].to_vec()),
-                    "l1Sib": limbs(v1[k1 ^ 1]),
-                    "l1Sibs": hexv(v1tree.sibs(k1)[1..].to_vec()),
-                    "l2Sib": limbs(v2[k2 ^ 1]),
-                    "l2Sibs": hexv(v2tree.sibs(k2)[1..].to_vec()),
-                })
+                });
+                let mut obj = base.as_object().unwrap().clone();
+                if is_toy {
+                    // the frozen v1 wire shape (byte-identical to the M1 fixtures;
+                    // serde_json serializes keys sorted, same as before)
+                    let (k1, k2) = (qi >> 1, qi >> 2);
+                    obj.insert("l1Sib".into(), serde_json::json!(limbs(line_layers[0][k1 ^ 1])));
+                    obj.insert(
+                        "l1Sibs".into(),
+                        serde_json::json!(hexv(line_trees[0].sibs(k1)[1..].to_vec())),
+                    );
+                    obj.insert("l2Sib".into(), serde_json::json!(limbs(line_layers[1][k2 ^ 1])));
+                    obj.insert(
+                        "l2Sibs".into(),
+                        serde_json::json!(hexv(line_trees[1].sibs(k2)[1..].to_vec())),
+                    );
+                } else {
+                    // v2 generalized line-layer openings: entry j opens layer j+1 at
+                    // pair index q >> (j+1); sibs drop the first hash (the sib value
+                    // is hashed into the tree by the verifier, the toy p0/l1/l2 idiom)
+                    let layers: Vec<serde_json::Value> = (0..n_layers - 1)
+                        .map(|j| {
+                            let k = qi >> (j + 1);
+                            serde_json::json!({
+                                "sib": limbs(line_layers[j][k ^ 1]),
+                                "sibs": hexv(line_trees[j].sibs(k)[1..].to_vec()),
+                            })
+                        })
+                        .collect();
+                    obj.insert("lineSibs".into(), serde_json::json!(layers));
+                }
+                serde_json::Value::Object(obj)
             })
             .collect();
 
+        let mut froots: Vec<String> = vec![hex32(&p0tree.root())];
+        froots.extend(line_trees.iter().map(|t| hex32(&t.root())));
         fixtures.push(serde_json::json!({
             "pub": hex::encode(pub_bytes),
             "traceRoot": hex32(&ttree.root()),
             "compRoot": hex32(&ctree.root()),
             "Tz": jq(t0z), "Tgz": jq(t1z), "Tg2z": jq(t2z),
             "Czs": [jq(czs[0]), jq(czs[1]), jq(czs[2]), jq(czs[3])],
-            "friRoots": [hex32(&p0tree.root()), hex32(&v1tree.root()), hex32(&v2tree.root())],
+            "friRoots": froots,
             "final": jq(final_v),
             "nonce": hex::encode(nonce),
             "queryIndices": qidx,
             "bundles": bundles,
         }));
-        println!(
-            "proved pub={:?}: queries {:?}",
-            String::from_utf8_lossy(pub_bytes),
-            qidx
-        );
+        println!("proved pub={:?}: queries {:?}", String::from_utf8_lossy(pub_bytes), qidx);
     }
+    let dest =
+        if is_toy { "fixtures/rust-proofs.json" } else { "fixtures/rust-proofs-full.json" };
     let out = serde_json::to_string_pretty(&serde_json::json!(fixtures)).unwrap();
-    std::fs::write("fixtures/rust-proofs.json", out).unwrap();
-    println!("wrote fixtures/rust-proofs.json");
+    std::fs::write(dest, out).unwrap();
+    println!("wrote {dest}");
 }
