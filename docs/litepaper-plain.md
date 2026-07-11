@@ -9,11 +9,12 @@
 > by a Clarity contract on Simnet, and a proof produced by a separate, independently
 > written prover is accepted by that contract. Second, the verifier was checked value by value against
 > the reference proving software it is meant to match, rather than assumed to match it. Third, this all
-> runs at demonstration strength: a small proof verifies at about one percent of a single block's
-> compute budget, and measurements show a full-strength version still fits in one transaction. This is
-> an engineering prototype. It shows the verifier is buildable and, at demonstration strength, working.
-> It is **not** production-secure, and no security claim is made until the settings are raised to full
-> strength, outside experts review the open questions, and a professional audit is completed.
+> now runs at production security settings: the pinned point carries about 100 bits under the standard,
+> unproven conjecture (54 proven bits; docs/m2-soundness.md), and checking one real proof costs about
+> 14.80% of a block's compute budget (docs/m2-cost-exhibit.md). This is an engineering prototype. It
+> shows the verifier is buildable and, at production strength, working. It is **not** audited and has
+> **not** been deployed to any public network. No security claim is made until independent experts
+> review the open questions and a professional audit is completed.
 
 ---
 
@@ -199,10 +200,13 @@ review. Many of those questions have now been closed by the cross-checks; the re
 final security settings and details of the commitment format. No security claim and no mainnet
 deployment until independent expert review, raised settings, a professional audit, and a bug bounty.
 
-**Current limitations.** This is an early prototype. The end-to-end check works at demonstration
-strength, but the production settings, the combined single-contract form, a consolidated specification,
-and an independent audit are not yet done. Cost figures are point-in-time under the current Stacks cost
-rules.
+**Current limitations.** This is an early prototype. The end-to-end check now works at production
+security settings, but the headline 100-bit soundness number rests on a standard conjecture that is not
+proven; the proven number is 54 bits (docs/m2-soundness.md). The code is not audited. The statement it
+proves, a Fibonacci sequence, is a demonstration example, not a real application. Testnet deployment has
+not happened yet. Whether the Hiro indexer correctly handles the verifier's slash-separated contract
+names is still an open question (docs/flatten.md). Cost figures are point-in-time under the current
+Stacks cost rules.
 
 ---
 

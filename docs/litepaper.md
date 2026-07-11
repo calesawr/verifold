@@ -9,12 +9,13 @@
 > end to end by a Clarity contract on a simulated network, and a proof produced by an independent Rust
 > prover (built on StarkWare's Stwo library) is accepted by that contract. Second, the verifier's
 > conventions were checked directly against the Stwo prover's own code, value for value, rather than
-> assumed. Third, this runs at demonstration parameters: a small proof verifies at about one percent of a
-> single block's compute budget. The full-strength version, with production security parameters, is the
-> remaining engineering work, and is being measured now. This is an engineering spike. It demonstrates the
-> verifier is buildable and, at toy strength, working, with high self-tested confidence. It is **not**
-> production-secure and makes no "secure" claim until the security parameters are raised, an independent
-> expert reviews the open questions, and a professional audit is completed.
+> assumed. Third, this now runs at production security parameters: the pinned point carries about 100
+> bits of soundness under the standard, unproven capacity conjecture, and 54 proven bits under the
+> Johnson bound (docs/m2-soundness.md), and one verification by the generated single contract measures
+> 14.80% of a block's compute budget (docs/m2-cost-exhibit.md). This is an engineering spike. It
+> demonstrates the verifier is buildable and, at production parameters, working, with high self-tested
+> confidence. It is **not** audited and is **not** yet deployed to any public network. No "secure" claim
+> is made until an independent expert reviews the open questions and a professional audit is completed.
 
 ---
 
@@ -224,10 +225,14 @@ the security parameters, the leaf/node hash tagging, and the conventions for non
 "secure" claim and no mainnet until independent expert review, raised parameters, a professional audit, a
 bug bounty, and continuous review.
 
-**Current limitations.** This is an early spike. An end-to-end check works at demonstration strength, but the
-production security parameters, the flattened single-contract form, a consolidated specification, and an
-independent audit are not yet done. The §5 cost figures are point-in-time under the current cost model.
-There is no production precedent for a STARK verifier in Clarity; maturity is emerging.
+**Current limitations.** This is an early spike. An end-to-end check now works at production security
+parameters, but the headline 100-bit soundness figure rests on the standard, unproven capacity conjecture;
+the proven figure is 54 bits (docs/m2-soundness.md). The code is not audited. The statement proved, a
+Fibonacci trace, is a demonstration AIR chosen to exercise the machinery, not an application statement.
+Testnet deployment has not happened yet. Indexer-side handling of the verifier's `/` names by the Hiro
+stacks-blockchain-api remains unverified (docs/flatten.md). The §5 cost figures are point-in-time under
+the current cost model. There is no production precedent for a STARK verifier in Clarity; maturity is
+emerging.
 
 ---
 
