@@ -20,9 +20,9 @@ so artifact size is trended per push.
     python3 tools/test_flatten.py         # all flattener unit tests
     python3 tools/test_flatten_check.py   # Layer 0 unit tests
     python3 tools/flatten_check.py        # Layer 0: token identity, 11 gears
-    clarinet check                        # all contracts, strict check_checker
-    npm test                              # baseline gear tests
-    VERIFOLD_FLAT=1 npx vitest run        # tests against verifold-flat
+    clarinet check                        # # 12 contracts, strict check_checker
+    npm test                              # # 240 baseline (gears)
+    VERIFOLD_FLAT=1 npx vitest run        # # 240 against verifold-flat
     VERIFOLD_DIFF=1 npx vitest run        # gear vs flat at every call (~2x)
 
 Mutation smoke (proves the redirect is live; CI runs it on every push):
