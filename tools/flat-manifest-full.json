@@ -1112,5 +1112,6 @@
     }
   ],
   "separator": "/",
+  "spanOffsetBasis": "templated-gear-text pre header pre contract-ref-rewrite; do NOT slice contracts/full/*.clar with these offsets",
   "version": 1
 }

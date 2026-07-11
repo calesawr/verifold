@@ -845,8 +845,23 @@ M2_NOTES = [
 ]
 
 
+# Finding 1 (Task 12 review): the full manifest's m2ParameterSpans
+# byteStart/byteEnd index the templated, pre-header, pre-contract-ref-rewrite
+# gear text (the Gear objects build() returns at the full point), NOT the
+# on-disk contracts/full/*.clar (which carry a 5-line generated header and
+# `-full` ref rewrites). inputs[].sha256 hashes the on-disk file, so a
+# consumer slicing by these offsets against contracts/full/*.clar would
+# mis-slice. Fixed by making the full manifest say so, rather than rebasing
+# offsets no one asked for; the toy manifest's offsets ARE true offsets into
+# the on-disk contracts/*.clar and must not carry this key (and must stay
+# byte-identical to the committed artifact).
+SPAN_OFFSET_BASIS_FULL = (
+    "templated-gear-text pre header pre contract-ref-rewrite; do NOT slice "
+    "contracts/full/*.clar with these offsets")
+
+
 def build_manifest(gears, contract="verifold-flat", input_dir="contracts",
-                   input_texts=None, allow_absorbed=False):
+                   input_texts=None, allow_absorbed=False, full=False):
     functions = {}
     constants = {}
     for g in gears:
@@ -873,7 +888,7 @@ def build_manifest(gears, contract="verifold-flat", input_dir="contracts",
             continue
         spans.append({"gear": gear_name, "name": def_name, "kind": d.kind,
                       "byteStart": d.start, "byteEnd": d.end, "note": note})
-    return {
+    manifest = {
         "version": 1,
         "generator": f"tools/flatten.py v{GENERATOR_VERSION}",
         "separator": SEPARATOR,
@@ -888,6 +903,9 @@ def build_manifest(gears, contract="verifold-flat", input_dir="contracts",
         "m2ParameterSpans": spans,
         "m2Notes": M2_NOTES,
     }
+    if full:
+        manifest["spanOffsetBasis"] = SPAN_OFFSET_BASIS_FULL
+    return manifest
 
 
 # ---------------- Stage 5: emission ----------------
@@ -1094,7 +1112,8 @@ def emit_full(gears, by_name, opts, extra=None):
         manifest_path = os.path.join(REPO_ROOT, "tools", "flat-manifest-full.json")
         manifest = build_manifest(gears, contract="verifold-flat-full",
                                   input_dir="contracts/full",
-                                  input_texts=full_texts, allow_absorbed=True)
+                                  input_texts=full_texts, allow_absorbed=True,
+                                  full=True)
         with open(manifest_path, "w", encoding="utf-8") as fh:
             json.dump(manifest, fh, indent=2, sort_keys=True)
             fh.write("\n")
@@ -1114,6 +1133,9 @@ def main(argv):
                          "(the deployable full profile is M3 work)")
     if opts["point"] == "full" and opts["gears"]:
         raise SystemExit("--point full emits all gears; --gears is toy-only")
+    if opts["point"] == "full" and opts["out_given"]:
+        raise SystemExit("--point full writes fixed paths (contracts/full/*.clar, "
+                         "verifold-flat-full.clar); --out is toy-only")
     gears, by_name = build(names, opts["point"])
     extra = {}
     if opts["mutate"]:

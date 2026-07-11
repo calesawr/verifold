@@ -390,6 +390,22 @@ def test_full_emit_no_contract_call_and_under_limit():
         assert f"gear: {name} (contracts/{name}.clar)" in flat
 
 
+def test_full_emit_no_contract_call_and_under_limit_at_full_point():
+    # Finding 2 (Task 12 review): the toy-point purity/size assert above was
+    # the only one pinned; the full-point flat artifact needs the same two
+    # invariants. Mirrors emit_full()'s own in-memory computation (no file
+    # writes): the -full gear texts (header + rewritten refs) feed emit_flat
+    # for the provenance header only, the flattened BODY (where a stray
+    # contract-call? would actually live) comes from the classify_gear edits
+    # already computed at the full point in build().
+    gears, _by = flatten.build(list(flatten.GEAR_ORDER), "full")
+    full_texts = {g.name: flatten.full_gear_header(g.name) + flatten.rewrite_full_refs(g.src)
+                  for g in gears}
+    flat = flatten.emit_flat(gears, full=True, texts=full_texts)
+    assert "contract-call?" not in flat
+    assert len(flat.encode()) < flatten.SIZE_LIMIT
+
+
 def test_full_emit_deterministic():
     gears1, _b1 = flatten.build(list(flatten.GEAR_ORDER))
     gears2, _b2 = flatten.build(list(flatten.GEAR_ORDER))
@@ -541,6 +557,39 @@ def test_full_census_pinned():
         "census drifted")
 
 
+def test_manifest_span_offset_basis_full_only():
+    # Finding 1 (Task 12 review): full-manifest m2ParameterSpans byteStart/
+    # byteEnd index the templated, pre-header, pre-contract-ref-rewrite gear
+    # text, not the on-disk contracts/full/*.clar that inputs[].sha256
+    # hashes. Fix is a self-describing artifact: the full manifest carries a
+    # top-level spanOffsetBasis key saying so; the toy manifest (whose
+    # offsets ARE true offsets into contracts/*.clar) must not gain it, so
+    # the toy manifest stays byte-identical.
+    full_gears, _by = flatten.build(list(flatten.GEAR_ORDER), "full")
+    full_m = flatten.build_manifest(full_gears, contract="verifold-flat-full",
+                                    input_dir="contracts/full",
+                                    allow_absorbed=True, full=True)
+    assert full_m["spanOffsetBasis"] == (
+        "templated-gear-text pre header pre contract-ref-rewrite; do NOT "
+        "slice contracts/full/*.clar with these offsets"), full_m["spanOffsetBasis"]
+
+    toy_gears, _by = flatten.build(list(flatten.GEAR_ORDER))
+    toy_m = flatten.build_manifest(toy_gears)
+    assert "spanOffsetBasis" not in toy_m
+
+
+def test_main_refuses_out_at_full_point():
+    # Finding 3 (Task 12 review): --out was silently ignored at --point full
+    # (emit_full writes fixed paths regardless); main() must refuse it the
+    # same way it already refuses --gears and --production at full.
+    try:
+        flatten.main(["--point", "full", "--out", "/tmp/should-not-write.clar"])
+    except SystemExit as e:
+        assert "--out" in str(e), str(e)
+    else:
+        assert False, "expected SystemExit"
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -583,6 +632,7 @@ TESTS = [
     test_covariance_green_and_nonvacuous,
     test_covariance_fires_on_oversized_literal,
     test_full_emit_no_contract_call_and_under_limit,
+    test_full_emit_no_contract_call_and_under_limit_at_full_point,
     test_full_emit_deterministic,
     test_full_emit_strips_gear_comments,
     test_manifest_covers_every_definition,
@@ -596,6 +646,8 @@ TESTS = [
     test_full_point_build_passes_gates,
     test_manifest_full_absorbed_spans,
     test_full_census_pinned,
+    test_manifest_span_offset_basis_full_only,
+    test_main_refuses_out_at_full_point,
 ]
 
 if __name__ == "__main__":
