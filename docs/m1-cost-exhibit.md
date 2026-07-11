@@ -9,6 +9,8 @@ dispatch-cost comparison.
 | --- | --- | --- |
 | driver verify totals | {"write_length":0,"write_count":0,"read_length":5385151,"read_count":2496,"runtime":50203879} | {"write_length":0,"write_count":0,"read_length":37482,"read_count":3,"runtime":44679207} |
 
+Baseline run: 239 of 240 tests passed (one FRI property test timed out at the default 5s limit under cost instrumentation; the driver verify cost entry was complete). Flat run: 240 of 240 passed.
+
 - read_count collapses because cross-contract dispatch was the entire read
   budget; a single contract has none. The spike projected read_count 3 and
   4 to 10% of a block at FULL parameters (docs/upstream, scale-up spike);
