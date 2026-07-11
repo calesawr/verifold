@@ -29,9 +29,13 @@ export default defineConfig({
     // clarinet handles test isolation by resetting the simnet between tests
     isolate: false,
     maxWorkers: 1,
+    // flat mode fuzz loops (2000×3 ops) exceed the 5 s default on the 40 KB flat
+    // artifact; 120 s keeps the wall-time check meaningful while not masking hangs.
+    testTimeout: 120_000,
     setupFiles: [
       vitestSetupFilePath,
-      // custom setup files can be added here
+      // flat-equivalence adapter: inert unless VERIFOLD_FLAT/VERIFOLD_DIFF is set
+      "./tests-support/flat-adapter.ts",
     ],
     environmentOptions: {
       clarinet: {
