@@ -853,6 +853,20 @@ def emit_flat(gears, extra=None):
     return flat
 
 
+# ---------------- Layer 4: the mutation smoke hook ----------------
+
+def mutation_edit(by_name, spec):
+    """CI-only. spec = '<gear>/<CONST>=<literal>'. Applied AFTER every gate,
+    at emission, so the deliberately wrong artifact reaches the test run and
+    the VERIFOLD_FLAT=1 failure proves the redirect is live, not vacuous."""
+    target, new_lit = spec.split("=", 1)
+    gear_name, const_name = target.split(SEPARATOR, 1)
+    d = by_name[gear_name].defs.get(const_name)
+    if d is None or d.kind != "constant":
+        raise FlattenError(f"--mutate targets constants only, got {spec!r}")
+    return gear_name, (d.value_node.start, d.value_node.end, new_lit)
+
+
 def max_let_depth(node, cur=0):
     best = cur
     if isinstance(node, Node):
@@ -931,7 +945,12 @@ def main(argv):
         raise SystemExit(f"unknown gears: {unknown}")
     names = [n for n in GEAR_ORDER if n in names]  # always emit in deploy order
     gears, by_name = build(names)
-    flat = emit_flat(gears)
+    extra = {}
+    if opts["mutate"]:
+        gname, edit = mutation_edit(by_name, opts["mutate"])
+        extra.setdefault(gname, []).append(edit)
+        print(f"MUTATED ARTIFACT (Layer 4 smoke only, do NOT commit): {opts['mutate']}")
+    flat = emit_flat(gears, extra)
     with open(opts["out"], "w", encoding="utf-8") as fh:
         fh.write(flat)
     print_stats(flat, gears)

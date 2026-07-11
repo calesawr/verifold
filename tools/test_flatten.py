@@ -444,6 +444,17 @@ def test_manifest_m2_spans_resolve():
     assert len(m["m2Notes"]) == 3
 
 
+def test_mutation_edit_flips_only_the_target_literal():
+    gears, by_name = flatten.build(list(flatten.GEAR_ORDER))
+    gname, edit = flatten.mutation_edit(by_name, "qm31/P=u2147483646")
+    assert gname == "qm31"
+    flat = flatten.emit_flat(gears, {gname: [edit]})
+    assert "(define-constant qm31/P u2147483646)" in flat
+    assert "(define-constant field/P u2147483647)" in flat  # only qm31 flipped
+    clean = flatten.emit_flat(gears)
+    assert flat != clean and flat.count("2147483646") == 1
+
+
 TESTS = [
     test_tokenize_edge_cases,
     test_reemission_byte_identical_all_gears,
@@ -491,6 +502,7 @@ TESTS = [
     test_manifest_covers_every_definition,
     test_manifest_lookup_shape,
     test_manifest_m2_spans_resolve,
+    test_mutation_edit_flips_only_the_target_literal,
 ]
 
 if __name__ == "__main__":
