@@ -2,8 +2,7 @@
 // tools/submit-proof.mjs: build, sign, broadcast, and confirm ONE
 // verifold-attest call from a committed fixture entry (M3a Stage C).
 // The signing phrase comes from the SIGNER_MNEMONIC environment variable
-// ONLY (never a file, never logged); the second-address submission is
-// this same tool run with the second wallet's phrase in the variable.
+// ONLY (never a file, never logged).
 // tests/full/submit-args.test.ts pins attestArgs() byte for byte against
 // the simnet-proven tests/full/args-full.ts builders, so the broadcast
 // encoding and the tested encoding cannot drift.

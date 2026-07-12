@@ -13,7 +13,7 @@
 > unproven conjecture (54 proven bits; docs/m2-soundness.md), and checking one real proof costs about
 > 14.80% of a block's compute budget (docs/m2-cost-exhibit.md). This is an engineering prototype. It
 > shows the verifier is buildable and, at production strength, working. It is **not** audited. It now
-> runs on the Stacks test network with five real proofs checked on-chain (docs/m3-testnet-receipts.md);
+> runs on the Stacks test network with five real proofs checked on-chain from the project's own address (docs/m3-testnet-receipts.md);
 > running on a test network is not a safety guarantee. No security claim is made until independent
 > experts review the open questions and a professional audit is completed.
 

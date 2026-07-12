@@ -9,7 +9,7 @@ What is live (deployed 2026-07-12, receipts in docs/m3-testnet-receipts.md):
 
 git, Node 24 with npm, Rust (the nightly pinned in interop/rust-toolchain.toml
 installs itself via rustup), Python 3.11 or newer, curl and sha256sum (standard
-on Linux and macOS), and a wallet that can hold a THROWAWAY testnet key. Never
+on Linux; macOS users substitute `shasum -a 256`), and a wallet that can hold a THROWAWAY testnet key. Never
 reuse a key that has ever touched mainnet funds.
 
 ## 2. Clone and check the deployed code is this repo's code
