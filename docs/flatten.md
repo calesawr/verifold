@@ -71,6 +71,19 @@ private. Only this profile is ever proposed for testnet, and testnet waits
 for M2 full parameters (founder decision 2026-07-10). Re-validate against
 interop.test.ts and the driver verify tests before any deploy.
 
+At the full point the same flag emits the deployable artifact:
+
+    python3 tools/flatten.py --point full --production
+
+Writes `contracts/verifold-flat-full-production.clar` (COMMITTED and CI
+drift-guarded, unlike the gitignored toy profile): identical to
+`contracts/verifold-flat-full.clar` except the one `driver/verify-query`
+head keyword, `define-read-only` demoted to `define-private`
+(tools/test_flatten.py pins the diff to exactly that line). The run
+writes nothing else: gear sources, manifest, and the equivalence
+artifact are untouched. This is one of the exactly two contracts M3a
+deploys to testnet, next to `contracts/verifold-attest.clar`.
+
 ## Full parameters (--point full)
 
 `contracts/full/*.clar`, `contracts/verifold-flat-full.clar`, and

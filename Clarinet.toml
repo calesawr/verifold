@@ -142,3 +142,8 @@ epoch = "3.1"
 path = "contracts/verifold-flat-full.clar"
 clarity_version = 3
 epoch = "3.1"
+
+[contracts.verifold-flat-full-production]
+path = "contracts/verifold-flat-full-production.clar"
+clarity_version = 3
+epoch = "3.1"

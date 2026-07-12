@@ -143,9 +143,12 @@ jobs:
       - run: |
           set -o pipefail
           python3 tools/flatten.py --point full | tee flatten-full.log
-      - run: grep -E "(list-covariance|emit-stats):" flatten-toy.log flatten-full.log >> "$GITHUB_STEP_SUMMARY"
+      - run: |
+          set -o pipefail
+          python3 tools/flatten.py --point full --production | tee flatten-full-production.log
+      - run: grep -E "(list-covariance|emit-stats):" flatten-toy.log flatten-full.log flatten-full-production.log >> "$GITHUB_STEP_SUMMARY"
       # the M1 drift guard extended: toy AND full generated artifacts
-      - run: git diff --exit-code contracts/verifold-flat.clar tools/flat-manifest.json contracts/full contracts/verifold-flat-full.clar tools/flat-manifest-full.json
+      - run: git diff --exit-code contracts/verifold-flat.clar tools/flat-manifest.json contracts/full contracts/verifold-flat-full.clar tools/flat-manifest-full.json contracts/verifold-flat-full-production.clar
       - run: python3 tools/flatten_check.py
       - run: python3 tools/flatten_check.py --point full
   full-test:
