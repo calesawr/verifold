@@ -40,6 +40,8 @@ Base field arithmetic is arithmetic of unsigned integers mod p; a value with a l
 
 The evaluation domain is the canonic coset of size DOMAIN_SIZE on the unit circle x^2 + y^2 = 1 over M31: position i in the first half is OFF * H^i, and position i in the second half is the conjugate of OFF * H^(i minus DOMAIN_SIZE/2) (source: contracts/verifold-flat-full-production.clar, query/domain-point, lines 423 to 427). OFF and H are the derived constants tabulated in section 8.
 
+The circle group product of two points (x1, y1) and (x2, y2) is (x1 x2 minus y1 y2, x1 y2 plus y1 x2), with all arithmetic mod p, and point conjugation is (x, minus y mod p) (source: contracts/verifold-flat-full-production.clar, qm31/cm-mul lines 49 to 51 and query/conj lines 421 to 422; tools/params.py, cmul). OFF times H to the i above and INI times S to the k in section 4 both multiply circle points under exactly this product.
+
 Bit reversal convention: The query index q is itself the committed (Merkle leaf) position; the committed array stores evaluations in bit reversed order, so the domain point a query opens is domain-point(bitrev(q)), the reversal of the low LOG_DOMAIN bits of q (17 bits at the production point) (source: contracts/verifold-flat-full-production.clar, query/bitrev and query/query-point lines 430 to 438, driver/verify-query lines 714 and 731 to 732). The prover and any independent verifier must apply the reversal exactly once, at this boundary.
 
 ## 2. Commitments
@@ -193,6 +195,8 @@ The transcript state is one 32 byte sha256 digest, initialized as state = sha256
 
 A QM31 challenge is four successive m31 squeezes filling c0, then c1, then c2, then c3. The 16 byte reduce mod p carries a total variation bias of about 2^-124 because 2^128 mod p = 16; this is accepted, quantified in the transcript gear header, and tracked as row 4 of the section 9 register (source: contracts/full/transcript.clar, header).
 
+The z challenge squeezed in schedule step 3 (Appendix A calls this value zfelt) is the out of domain point used throughout sections 4 and 5.
+
 ## 4. The demonstration AIR
 
 The demonstration statement is a Fibonacci trace on the circle: one committed column, one transition constraint, one boundary constraint. This section pins the constraint system, the selector and boundary lines, and the air_id registry that names statements.
@@ -336,6 +340,8 @@ The DEEP composition reduces seven claimed openings at the out of domain point t
         (qm31/qm31-mul num2 (cdeep/denom-inv (get x z2) (get y z2) px py)))))))))))
 ```
 <!-- END-GENERATED: deep-openings -->
+
+cdeep/conj-u negates limbs c2 and c3 of a QM31 value, the u component under the tower in section 1, leaving c0 and c1 unchanged; this is the conjugation cdeep/line-coeffs uses to form araw and craw above (source: contracts/verifold-flat-full-production.clar, cdeep/conj-u lines 214 to 216). cdeep/rot-s rotates a circle point (zx, zy) by the fixed point (SX, SY) under the section 1 circle product; the deep row listing applies it twice to carry z into the gz and g^2 z mask points z1 and z2 (source: contracts/verifold-flat-full-production.clar, cdeep/rot-s lines 256 to 263).
 
 Seven values are opened at the out of domain point: the trace at z, gz, and g^2 z, and the four composition columns at z. The DEEP column at a query point P sums three quotient groups, one per mask point: the z group carries t(z) with weight 1 plus the four composition openings with weights gamma^3 to gamma^6, the gz group carries t(gz) with weight gamma, and the g^2 z group carries t(g^2 z) with weight gamma^2, each group divided by its own denominator at P (source: the deep-row listing above; the weight table is re-verified against that listing on every generation run).
 
@@ -586,7 +592,7 @@ Headline, conjectured (UNPROVEN; ethSTARK Conjecture 1 style capacity accounting
 Headline, proven (Johnson bound): 54.0 bits = proven_query_term + grinding_term.
 <!-- END-GENERATED: soundness-accounting -->
 
-The conjectured figure is exactly that, a conjecture: 100 bits under the ethSTARK Conjecture 1 style capacity accounting, which is standard practice in deployed STARK systems and is unproven; the proven Johnson bound companion at the same point is 54.0 bits, and no claim in this repository states the conjectured number without this pairing (source: tools/soundness.py; docs/m2-soundness.md).
+The conjectured figure is exactly that, a conjecture: 100 bits under the ethSTARK Conjecture 1 style capacity accounting, which is standard practice in deployed STARK systems and is unproven; the proven Johnson bound companion at the same point is 54.0 bits, and no security level claim in this repository states the conjectured number without this pairing; historical candidate selection receipts state candidate bit counts in measurement context (source: tools/soundness.py; docs/m2-soundness.md).
 
 Both accountings above are regenerated from tools/soundness.py bits(PRODUCTION_POINT) on every generator run. The memo docs/m2-soundness.md carries the term by term walkthrough, the drawn not deduplicated quantification (about 0.008072 conjectured bits at this point), and the fallback point analysis; this section supersedes none of it (source: docs/m2-soundness.md).
 
@@ -604,7 +610,7 @@ This register lists every convention this implementation pinned as a documented 
 | 3 | drawn, not deduplicated, query indices: the 23 query indices are drawn independently and never deduplicated | contracts/full/schedule.clar | docs/expert-review-questions.md DRIVER-3 and CAIR-7; quantified in docs/m2-soundness.md |
 | 4 | squeeze reduction bias: challenges reduce 16 big endian sha256 bytes mod p, total variation bias about 2^-124 | contracts/full/transcript.clar | docs/expert-review-questions.md item 8 |
 | 5 | minimum, not error sum, soundness cap: the soundness ceilings combine as a minimum rather than an error sum | tools/soundness.py | docs/expert-review-questions.md item 3 and DRIVER-9; quantified in docs/m2-soundness.md |
-| 6 | query index modulus: each drawn index is the squeezed m31 value reduced mod DOMAIN_SIZE | contracts/full/schedule.clar | docs/expert-review-questions.md QUERY-5 and DRIVER-3 |
+| 6 | query index modulus: each drawn index is the squeezed m31 value reduced mod DOMAIN_SIZE | contracts/full/schedule.clar | docs/expert-review-questions.md AIR-5 (query reduction clause) and DRIVER-3 |
 | 7 | sha256 duplex transcript: the whole Fiat-Shamir construction is a single digest sha256 duplex with 1 byte op tags | contracts/full/transcript.clar | docs/expert-review-questions.md item 5 and CAIR-6 |
 | 8 | circle domain conventions: coset offset, bit reversal direction, first fold twiddle, and mask shift semantics follow Stwo as read; empirically cross checked by the gear 6f interop harness, still awaiting expert blessing | contracts/full/query.clar | docs/expert-review-questions.md QUERY-1 to QUERY-6 |
 <!-- END-GENERATED: deviations-register -->

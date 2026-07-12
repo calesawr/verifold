@@ -518,7 +518,8 @@ DEVIATIONS = [
      "each drawn index is the squeezed m31 value reduced mod"
      " DOMAIN_SIZE",
      "contracts/full/schedule.clar", "DOCUMENTED DEFAULT",
-     "docs/expert-review-questions.md QUERY-5 and DRIVER-3"),
+     "docs/expert-review-questions.md AIR-5 (query reduction clause)"
+     " and DRIVER-3"),
     ("sha256 duplex transcript",
      "the whole Fiat-Shamir construction is a single digest sha256"
      " duplex with 1 byte op tags",
