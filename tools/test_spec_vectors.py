@@ -68,6 +68,8 @@ def main():
     ch = block(doc, "vector-challenges")
     assert doc_list(ch, "alpha") == kats["alpha"]
     assert doc_list(ch, "zfelt") == kats["zfelt"]
+    assert doc_list(ch, "zx") == kats["zx"]
+    assert doc_list(ch, "zy") == kats["zy"]
     assert doc_list(ch, "gamma") == kats["gamma"]
     assert len(kats["betas"]) == n_layers, "betas count is not one per layer"
     assert doc_list(ch, "betas[0]") == kats["betas"][0]

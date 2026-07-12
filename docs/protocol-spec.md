@@ -75,6 +75,8 @@ The canonical leaf preimage for a QM31 value is exactly 16 bytes: c0, c1, c2, c3
 
 An interior node is sha256(left || right) over the two 32 byte children, with no node tag byte. A Merkle path is a list of sibling hashes ordered leaf to root; at each step the direction bit says whether the running node is the right child, and the driver derives that bit from the low bit of the position at that depth, halving the position each step (source: contracts/verifold-flat-full-production.clar, merkle/merkle-step lines 304 to 309, driver/path-step-full lines 607 to 612).
 
+Merkle direction bits are never transmitted: a path carries only the sibling hashes, the verifier derives every direction bit from the expected leaf position as above, and it asserts the exact path length, so a transmitted path can only prove membership at the position the verifier itself computed (source: contracts/verifold-flat-full-production.clar, driver/path-step-full; the exact length asserts in driver/bound-at-pos-full and driver/pair-bound-full).
+
 These 16 bytes are the same bytes the transcript absorbs for an opened value: one encoder serves both the tree and the transcript, so the committed preimage and the absorbed message can never diverge (source: contracts/full/commit.clar, header). The absence of leaf and node tags is a documented default, rows 1 and 2 of the section 9 register.
 
 ## 3. Transcript schedule
@@ -234,7 +236,7 @@ Transition quotient: q_trans = (t(g^2 z) - t(gz) - t(z)) * SEL(z) / V(z), where 
 
 Out of domain consistency check: the verifier maps the squeezed z felt to a circle point via the rational parametrization x = (1 - z^2)/(1 + z^2), y = 2z/(1 + z^2), recomputes the composition from the trace openings, and requires it to equal c0(z) + i c1(z) + u c2(z) + iu c3(z), the recombination of the four committed composition column openings with the fixed basis constants Q_I, Q_U, Q_IU (source: contracts/verifold-flat-full-production.clar, cair/felt-to-point lines 110 to 115, cair/recomb lines 186 to 195, cair/cair-compose-check lines 196 to 209).
 
-The air_id registry is monotonic: an id names one statement forever, a retired id is never reused, and a changed statement takes the next free id. air_id 10 names the toy statement; air_id 11 names this production statement (source: tools/params.py, registry comment lines 18 to 20).
+The air_id registry is monotonic: an id names one statement forever, a retired id is never reused, and a changed statement takes the next free id. air_id 10 names the toy statement; air_id 11 names the demonstration statement at production scale, the production trace circle Fibonacci, carried by every full scale parameter point in the registry table above (source: tools/params.py, registry comment lines 18 to 20).
 
 ## 5. DEEP composition
 
@@ -397,6 +399,8 @@ The guard line an independent implementation must reproduce exactly:
 
 The fold rule at every layer is f' = (a + b) + beta * (a - b) * w, where a is the value at the even position of the pair, b the value at the odd position, beta the layer's transcript challenge, and w the inverse twiddle. Layer 0 folds the committed DEEP column with the circle twiddle (the y coordinate of the paired even point); every later layer folds with the line twiddle from the table above, where pi(x) = 2x^2 - 1 doubles along the fold chain (source: contracts/verifold-flat-full-production.clar, fri/fri-fold-step-hint lines 379 to 389, driver/y-twiddle line 590 to 591, driver/line-x1 through line-x15 lines 592 to 663).
 
+The layer base x in the table is pinned by the driver's line-x ladder: for layer k the driver clears the low k+1 bits of the query position q, that is 2^k times even-of(q divided by 2^k), takes query-x of that cleared position (the x coordinate of the domain point it selects under the section 1 bit reversal convention), and applies pi exactly k minus 1 times. One rung verbatim: driver/line-x2 is (fri/pi-x (query/query-x (* u4 (driver/even-of (/ q u4))))), one pi application on the base at 4 times even-of(q divided by 4) (source: contracts/verifold-flat-full-production.clar, driver/even-of, driver/line-x1 through driver/line-x15).
+
 Wire v2 transmits the prover computed inverse hint for every fold: the verifier never computes a field inverse in the fold chain; it checks each hint with one multiplication and aborts unless x * hint = 1 in the base field, the guard quoted above. Since x = 0 has no inverse, no hint can satisfy the guard at x = 0, so the wire v1 zero twiddle abort is preserved unchanged (source: contracts/verifold-flat-full-production.clar, line 386).
 
 Each fold's output is bound to the next committed layer before folding continues: the running value and its transmitted sibling must verify as a leaf pair against that layer's Merkle root at the query's position in that layer (source: contracts/verifold-flat-full-production.clar, driver/pair-bound-full lines 624 to 637, driver/verify-query lines 664 to 767). After N_LAYERS folds the running value must equal the transmitted final value exactly; the final value was absorbed into the transcript before the nonce, so it is fixed before any query index is drawn (source: section 3 schedule, step 7).
@@ -461,6 +465,8 @@ The verifier is one read only entry point on the flattened production contract. 
                      hints: (list 16 uint) })))
 ```
 <!-- END-GENERATED: verify-signature -->
+
+The verifier hard asserts every proof shape length against its own PARAMS bound constants before accepting any opening: queryIndices and bundles carry exactly n_queries entries (23); friRoots and betas carry N_LAYERS entries (16); per bundle, tSibs and cSibs carry LOG_DOMAIN hashes (17), p0Sibs carries LOG_DOMAIN minus 1 (16), and lineSibs carries N_LAYERS minus 1 entries (15) whose path lengths descend 15 to 1. hints carries N_LAYERS values (16), enforced by sixteen aborting element lookups rather than a len assert. Any mismatch aborts (source: contracts/verifold-flat-full-production.clar, the four len asserts in driver/verify and the exact depth arguments driver/verify-query passes to driver/bound-at-pos-full and driver/pair-bound-full; wire names per Appendix A).
 
 <!-- BEGIN-GENERATED: attest-integration -->
 <!-- generated by tools/gen_spec_tables.py from: contracts/verifold-attest.clar (the attest entry point, verbatim); docs/m3-testnet-receipts.md (live identifiers, parsed at run time) -->
@@ -613,6 +619,8 @@ The vectors below are extracted from the committed production fixtures and let a
 
 > Appendix A holds the pinned test vectors for the empty-pub production proof. Every value below is generated from the committed fixtures by tools/gen_spec_tables.py, and tools/test_spec_vectors.py re-parses this document and re-checks every value against the fixtures directly, so the appendix cannot drift from the proofs it describes. An independent implementation should reproduce, in order: the ctx bytes, the challenge chain, the bundle checks for the worked query, and the final value; matching all four is the acceptance bar this specification sets. (source: tools/kats-full.json and interop/fixtures/rust-proofs-full.json, the committed production fixtures)
 
+The zx and zy values in vector-challenges are the circle point coordinates the verifier derives from zfelt; reproducing them confirms the felt to point map. (source: tools/kats-full.json)
+
 <!-- BEGIN-GENERATED: vector-ctx -->
 Source: tools/kats-full.json (ctx, pub); the PARAMS slice is cross-checked against tools/params.py derived(PRODUCTION_POINT) and the sha256 slice is recomputed from pub at generation time.
 
@@ -634,6 +642,8 @@ Source: tools/kats-full.json (the production KAT export for the empty-pub proof)
 ```
 alpha        = [928048860, 2067221984, 1271999936, 726161750]
 zfelt        = [675389843, 1729761862, 1235296210, 364673981]
+zx           = [107737024, 1367563752, 922145472, 361160861]
+zy           = [1511339200, 1839600793, 1185743531, 705651971]
 gamma        = [244096230, 2120576295, 95932824, 401370035]
 betas[0]     = [333114197, 21046736, 542159198, 960366263]
 betas[15]    = [1634492610, 1274424261, 204362911, 992239846]

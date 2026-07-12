@@ -24,6 +24,7 @@ that every node re-executes.
 
 - [`docs/litepaper-plain.md`](docs/litepaper-plain.md), the plain-language edition
 - [`docs/litepaper.md`](docs/litepaper.md), the technical edition
+- [`docs/protocol-spec.md`](docs/protocol-spec.md), the consolidated rebuild-grade protocol specification; every parameter table and test vector in it is generated from the repository's own tools and drift-gated in CI
 - [`docs/expert-review-questions.md`](docs/expert-review-questions.md), every design decision
   awaiting a STARK cryptographer's confirmation, with what has already been resolved empirically
 

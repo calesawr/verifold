@@ -643,6 +643,8 @@ def emit_vector_challenges():
         "```",
         f"alpha        = {kats['alpha']}",
         f"zfelt        = {kats['zfelt']}",
+        f"zx           = {kats['zx']}",
+        f"zy           = {kats['zy']}",
         f"gamma        = {kats['gamma']}",
         f"betas[0]     = {kats['betas'][0]}",
         f"betas[{n - 1}]    = {kats['betas'][-1]}",
