@@ -133,6 +133,7 @@ jobs:
       - run: python3 tools/test_hints.py
       - run: python3 tools/test_check_cost_gate.py
       - run: python3 tools/test_proof_size.py
+      - run: python3 tools/test_gen_spec_tables.py
       # params export drift guard: PRODUCTION_POINT must match the committed
       # interop-side export, or the two params sources have drifted apart
       - run: python3 tools/params.py --json PRODUCTION_POINT | diff - interop/params-full.json
@@ -147,8 +148,12 @@ jobs:
           set -o pipefail
           python3 tools/flatten.py --point full --production | tee flatten-full-production.log
       - run: grep -E "(list-covariance|emit-stats):" flatten-toy.log flatten-full.log flatten-full-production.log >> "$GITHUB_STEP_SUMMARY"
+      # spec drift guard: every generated block of the protocol spec is
+      # regenerated here; a hand edit inside a fence or a stale number
+      # diffs below and fails the build
+      - run: python3 tools/gen_spec_tables.py
       # the M1 drift guard extended: toy AND full generated artifacts
-      - run: git diff --exit-code contracts/verifold-flat.clar tools/flat-manifest.json contracts/full contracts/verifold-flat-full.clar tools/flat-manifest-full.json contracts/verifold-flat-full-production.clar
+      - run: git diff --exit-code contracts/verifold-flat.clar tools/flat-manifest.json contracts/full contracts/verifold-flat-full.clar tools/flat-manifest-full.json contracts/verifold-flat-full-production.clar docs/protocol-spec.md
       - run: python3 tools/flatten_check.py
       - run: python3 tools/flatten_check.py --point full
   full-test:

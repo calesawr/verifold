@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""Unit tests for tools/gen_spec_tables.py. No pytest in this environment:
+plain asserts, run as `python3 tools/test_gen_spec_tables.py`."""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gen_spec_tables as g
+import params
+
+
+def _fails(text):
+    try:
+        g.parse_fences(text)
+    except SystemExit as e:
+        return str(e)
+    raise AssertionError("expected FenceError, parse succeeded")
+
+
+def test_begin_without_end_fails():
+    msg = _fails("<!-- BEGIN-GENERATED: field-constants -->\nx\n")
+    assert "never closed" in msg, msg
+
+
+def test_end_without_begin_fails():
+    msg = _fails("x\n<!-- END-GENERATED: field-constants -->\n")
+    assert "without BEGIN" in msg, msg
+
+
+def test_unknown_block_id_fails_listing_offender():
+    msg = _fails("<!-- BEGIN-GENERATED: no-such-block -->\n"
+                 "<!-- END-GENERATED: no-such-block -->\n")
+    assert "unknown block id no-such-block" in msg, msg
+
+
+def test_mismatched_pair_fails():
+    msg = _fails("<!-- BEGIN-GENERATED: field-constants -->\n"
+                 "<!-- END-GENERATED: qm31-tower -->\n")
+    assert "does not match" in msg, msg
+
+
+def test_duplicate_block_id_fails():
+    msg = _fails(("<!-- BEGIN-GENERATED: field-constants -->\n"
+                  "<!-- END-GENERATED: field-constants -->\n") * 2)
+    assert "duplicate block id field-constants" in msg, msg
+
+
+def test_all_offenders_reported_in_one_run():
+    msg = _fails("<!-- END-GENERATED: qm31-tower -->\n"
+                 "<!-- BEGIN-GENERATED: not-a-block -->\n"
+                 "<!-- END-GENERATED: not-a-block -->\n")
+    assert "without BEGIN" in msg and "unknown block id not-a-block" in msg, msg
+
+
+def test_registry_is_exactly_the_pinned_twenty():
+    pinned = {
+        "field-constants", "qm31-tower", "circle-generator",
+        "merkle-leaf-encoding", "transcript-operations", "transcript-schedule",
+        "air-constants", "deep-openings", "fri-layer-table", "hint-check",
+        "verify-signature", "attest-integration", "parameter-point",
+        "soundness-accounting", "deviations-register", "vector-ctx",
+        "vector-challenges", "vector-query-bundle", "vector-final",
+        "wire-v1-appendix",
+    }
+    ids = set(g.EMITTERS) | set(g.PENDING)
+    assert ids == pinned, ids.symmetric_difference(pinned)
+    assert not set(g.EMITTERS) & set(g.PENDING)
+
+
+def test_field_constants_reads_params():
+    out = g.emit_field_constants()
+    assert str(params.P) in out, out
+    assert "tools/params.py" in out
+
+
+def test_qm31_tower_quotes_the_gear_header():
+    out = g.emit_qm31_tower()
+    assert "CM31 = M31[i]/(i^2 + 1)" in out, out
+    assert "QM31 = CM31[u]/(u^2 - (2+i))" in out, out
+    assert "(c0 + c1*i) + (c2 + c3*i)*u" in out, out
+    # the gear comment tail (double-hyphen prose) must not leak in
+    assert "--" not in out.replace("<!--", "").replace("-->", ""), out
+
+
+def test_circle_generator_reads_params_g():
+    out = g.emit_circle_generator()
+    assert str(params.G[0]) in out and str(params.G[1]) in out, out
+    assert "2^31" in out
+
+
+def test_parameter_point_matches_derived():
+    d = params.derived(params.PRODUCTION_POINT)
+    out = g.emit_parameter_point()
+    for needle in (str(d["DOMAIN_SIZE"]), str(d["TRACE_ROWS"]),
+                   str(d["POW_THRESHOLD"]), d["PARAMS"].hex(),
+                   str(d["SEL"]["B"]), str(d["B01"]["B"]),
+                   str(params.PRODUCTION_POINT["n_queries"])):
+        assert needle in out, needle
+
+
+def test_spec_splice_deterministic_double_run():
+    text = g.read_text(g.SPEC)
+    once, n1 = g.splice(text)
+    twice, n2 = g.splice(once)
+    assert n1 == n2 == 20, (n1, n2)
+    assert once == twice
+
+
+TESTS = [
+    test_begin_without_end_fails,
+    test_end_without_begin_fails,
+    test_unknown_block_id_fails_listing_offender,
+    test_mismatched_pair_fails,
+    test_duplicate_block_id_fails,
+    test_all_offenders_reported_in_one_run,
+    test_registry_is_exactly_the_pinned_twenty,
+    test_field_constants_reads_params,
+    test_qm31_tower_quotes_the_gear_header,
+    test_circle_generator_reads_params_g,
+    test_parameter_point_matches_derived,
+    test_spec_splice_deterministic_double_run,
+]
+
+if __name__ == "__main__":
+    for t in TESTS:
+        t()
+        print(f"PASS {t.__name__}")
+    print(f"OK ({len(TESTS)} tests)")
