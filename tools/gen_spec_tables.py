@@ -137,17 +137,124 @@ def emit_parameter_point():
     return "\n".join(out)
 
 
+def emit_merkle_leaf_encoding():
+    import hashlib
+    flat = read_text(FLAT)
+    code = contract_slice(flat, "(define-private (commit/m31-to-be4",
+                          "(define-read-only (commit/opening-bound")
+    assert "commit/qm31-enc16" in code and "commit/qm31-leaf" in code
+    example = (1, 2, 3, 4)
+    enc = b"".join(v.to_bytes(4, "big") for v in example)
+    leaf = hashlib.sha256(enc).hexdigest()
+    return "\n".join([
+        src_note("contracts/verifold-flat-full-production.clar"
+                 " (commit gear: m31-to-be4, qm31-enc16, qm31-leaf)"),
+        "",
+        "```clarity",
+        code,
+        "```",
+        "",
+        "Worked example, computed by the generator under the same"
+        " convention (the contract KATs in the frozen test surface pin"
+        " the contract to these bytes):",
+        "",
+        "| step | value |",
+        "| --- | --- |",
+        "| element | c0 {}, c1 {}, c2 {}, c3 {} |".format(*example),
+        "| enc16 | {} |".format(enc.hex()),
+        "| leaf = sha256(enc16) | {} |".format(leaf),
+    ])
+
+
+def emit_transcript_operations():
+    flat = read_text(FLAT)
+    tags = {}
+    for name in ("OP_ABSORB", "OP_SQUEEZE", "OP_POW",
+                 "T_ROOT", "T_QM31", "T_NONCE"):
+        m = re.search(r"\(define-constant transcript/" + name
+                      + r" (0x[0-9a-f]+)\)", flat)
+        assert m, name
+        tags[name] = m.group(1)
+    ops = contract_slice(flat, "(define-read-only (transcript/transcript-init",
+                         "(define-private (transcript/absorb-root-step")
+    sqz = contract_slice(flat, "(define-private (transcript/read-u128-be",
+                         ";; ========================= gear: schedule")
+    meanings = [
+        ("OP_ABSORB", "first byte after the state on every absorb"),
+        ("OP_SQUEEZE", "the single byte appended to the state on every"
+                       " squeeze"),
+        ("OP_POW", "first byte after the state on the proof of work"
+                   " check"),
+        ("T_ROOT", "absorb type tag for a 32 byte Merkle root"),
+        ("T_QM31", "absorb type tag for a 16 byte QM31 encoding"),
+        ("T_NONCE", "absorb type tag for the 8 byte nonce"),
+    ]
+    out = [src_note("contracts/verifold-flat-full-production.clar"
+                    " (transcript gear: op tag constants and the"
+                    " absorb/squeeze/pow definitions)"), "",
+           "| tag | byte | role |", "| --- | --- | --- |"]
+    out += ["| {} | {} | {} |".format(n, tags[n], m) for n, m in meanings]
+    out += ["", "```clarity", ops, "", sqz, "```"]
+    return "\n".join(out)
+
+
+def emit_transcript_schedule():
+    import json
+    flat = read_text(FLAT)
+    n = int(re.search(r"\(define-constant schedule/N u(\d+)\)",
+                      flat).group(1))
+    l = int(re.search(r"\(define-constant schedule/L u(\d+)\)",
+                      flat).group(1))
+    dom = int(re.search(r"\(define-constant schedule/DOMAIN_SIZE u(\d+)\)",
+                        flat).group(1))
+    code = contract_slice(flat,
+                          "(define-read-only (schedule/derive-challenges",
+                          "(define-read-only (schedule/get-params")
+    # cross-check the schedule shape against the committed KAT export
+    with open(os.path.join(HERE, "kats-full.json")) as f:
+        kats = json.load(f)
+    assert len(kats["friRoots"]) == l and len(kats["betas"]) == l
+    assert len(kats["queryIndices"]) == n
+    for key in ("ctx", "traceRoot", "compRoot", "alpha", "zfelt", "Tz",
+                "Tgz", "Tg2z", "Czs", "gamma", "final", "nonce"):
+        assert key in kats, key
+    steps = [
+        "init: state = sha256(ctx)",
+        "absorb T_ROOT trace root, then squeeze one QM31: alpha",
+        "absorb T_ROOT composition root, then squeeze one QM31: z",
+        "absorb T_QM31 seven times, in order t(z), t(gz), t(g^2 z),"
+        " c0(z), c1(z), c2(z), c3(z), with no squeeze between them",
+        "squeeze one QM31: gamma",
+        "for each of the {} FRI roots in layer order: absorb T_ROOT the"
+        " root, then squeeze one QM31: beta of that layer".format(l),
+        "absorb T_QM31 the transmitted final value",
+        "proof of work check on the current state with the 8 byte nonce"
+        " (reads the state, does not advance it)",
+        "absorb T_NONCE the nonce",
+        "squeeze m31 {} times; each query index is the squeezed value"
+        " mod {}".format(n, dom),
+    ]
+    out = [src_note("contracts/verifold-flat-full-production.clar"
+                    " (schedule gear: constants and derive-challenges);"
+                    " cross-checked against tools/kats-full.json"), "",
+           "| step | operation |", "| --- | --- |"]
+    out += ["| {} | {} |".format(i + 1, s) for i, s in enumerate(steps)]
+    out += ["", "The normative definition, verbatim:", "",
+            "```clarity", code, "```"]
+    return "\n".join(out)
+
+
 EMITTERS = {
     "field-constants": emit_field_constants,
     "qm31-tower": emit_qm31_tower,
     "circle-generator": emit_circle_generator,
     "parameter-point": emit_parameter_point,
+    "merkle-leaf-encoding": emit_merkle_leaf_encoding,
+    "transcript-operations": emit_transcript_operations,
+    "transcript-schedule": emit_transcript_schedule,
 }
 
 PENDING = {
-    "merkle-leaf-encoding": "Task 2",
-    "transcript-operations": "Task 2",
-    "transcript-schedule": "Task 2",
     "air-constants": "Task 3",
     "deep-openings": "Task 3",
     "fri-layer-table": "Task 3",

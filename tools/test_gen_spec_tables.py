@@ -106,6 +106,48 @@ def test_spec_splice_deterministic_double_run():
     assert once == twice
 
 
+def test_merkle_leaf_encoding_quotes_contract_and_example_is_real():
+    import hashlib
+    out = g.emit_merkle_leaf_encoding()
+    # known substrings from the real source (flat contract, commit gear)
+    assert "(define-private (commit/m31-to-be4" in out, out
+    assert "(define-read-only (commit/qm31-leaf" in out, out
+    assert "slice? (unwrap-panic (to-consensus-buff? v)) u13 u17" in out
+    # the worked example must be the generator's own computation
+    enc = b"".join(v.to_bytes(4, "big") for v in (1, 2, 3, 4))
+    assert enc.hex() in out
+    assert hashlib.sha256(enc).hexdigest() in out
+
+
+def test_transcript_operations_tags_come_from_contract():
+    out = g.emit_transcript_operations()
+    flat = g.read_text(g.FLAT)
+    import re as _re
+    for name in ("OP_ABSORB", "OP_SQUEEZE", "OP_POW",
+                 "T_ROOT", "T_QM31", "T_NONCE"):
+        tag = _re.search(r"\(define-constant transcript/" + name
+                         + r" (0x[0-9a-f]+)\)", flat).group(1)
+        assert "| {} | {} |".format(name, tag) in out, name
+    assert "(define-read-only (transcript/squeeze-m31" in out
+    assert "(define-read-only (transcript/pow-ok" in out
+
+
+def test_transcript_schedule_matches_contract_and_kats():
+    import json
+    out = g.emit_transcript_schedule()
+    assert "(define-read-only (schedule/derive-challenges" in out
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "kats-full.json")) as f:
+        kats = json.load(f)
+    assert "squeeze m31 {} times".format(len(kats["queryIndices"])) in out
+    assert "each of the {} FRI roots".format(len(kats["friRoots"])) in out
+    # the modulus must be the contract's schedule/DOMAIN_SIZE
+    import re as _re
+    dom = _re.search(r"\(define-constant schedule/DOMAIN_SIZE u(\d+)\)",
+                     g.read_text(g.FLAT)).group(1)
+    assert "mod {}".format(dom) in out
+
+
 TESTS = [
     test_begin_without_end_fails,
     test_end_without_begin_fails,
@@ -119,6 +161,9 @@ TESTS = [
     test_circle_generator_reads_params_g,
     test_parameter_point_matches_derived,
     test_spec_splice_deterministic_double_run,
+    test_merkle_leaf_encoding_quotes_contract_and_example_is_real,
+    test_transcript_operations_tags_come_from_contract,
+    test_transcript_schedule_matches_contract_and_kats,
 ]
 
 if __name__ == "__main__":
