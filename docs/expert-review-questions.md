@@ -47,7 +47,10 @@ item below:
 
 Quick yes or no confirmations that remain open: DRIVER-3 and CAIR-7 (drawn not deduped queries; the
 quantified disclosure is in docs/m2-soundness.md), DRIVER-5 (fold_step 1 scope), DRIVER-6 (per query
-independent decommitment), DRIVER-8 (wire format conjugate choice).
+independent decommitment), DRIVER-8 (wire format conjugate choice), and the hint-and-check soundness
+clause of item 7 with DRIVER-7 part (c): the prover supplies each inverse twiddle and the verifier
+checks t * t^-1 = 1; the pattern is shipped and measured, but whether it is sound here still needs the
+expert's yes (full text in Appendix R.3 and R.5).
 
 Previously resolved empirically (gear 6e and 6f markers inline, kept in place): QUERY-1, QUERY-2,
 QUERY-3, QUERY-4, QUERY-6, CAIR-8/CDEEP-1, CDEEP-3.
@@ -96,7 +99,7 @@ regenerates and diffs on every push.
 |---|---|
 | vitest suites | 244 baseline tests plus the full-parameter suite in tests/full; commands and counts in docs/flatten.md |
 | independent provers | an independent Rust prover built on Stwo (interop/) and a from-scratch Python replay (tools/gear6e_replay.py) pin the known-answer vectors; the committed production fixtures are real Rust proofs |
-| interop harness | a 16-check cross-validation against Stwo's own functions, run at both the toy and the production points (interop/) |
+| interop harness | a 16-check cross-validation against Stwo's own functions at the toy point, with the S8 fold chain and the end-to-end production proofs at the production point (interop/) |
 | measured cost | one production verify() = runtime 739929603 of the 5000000000 block limit, 14.80 percent of a block (docs/m2-cost-exhibit.md) |
 | soundness accounting | 100 conjectured bits (capacity conjecture, unproven) and 54.0 proven bits, both itemized (docs/m2-soundness.md, tools/soundness.py) |
 | testnet liveness | deployed at block 4040277 by ST3GWNV45EC10P42Y7M7RCK6VP6NS9W47GAZHH9F, five proofs attested on-chain; liveness only, not a security claim (docs/m3-testnet-receipts.md) |
@@ -164,6 +167,9 @@ soundness target. That is exactly what we are asking about.
    point) are structurally nonzero -- so an honest proof never triggers these aborts.
 
 ### A2. AIR constraint system (gear 6b -- just built)
+
+2026-07-12 note: the gear 6e rebuild (section A5) superseded the A2 items below; their live residue is
+the CAIR list in section A5, fronted in Section 0.
 
 We built the AIR composition-evaluation core against a TOY: a single-column Fibonacci trace over an
 order-9 multiplicative subgroup of M31, with vanisher `Z = x^9 - 1` and composition
@@ -335,8 +341,9 @@ quotients cost ~45% more than the 6d-iv x-only path; still comfortably in budget
 
 The original headline ask here (a known-answer vector from Stwo's own test suite for fold_line and the
 QM31 tower) is delivered: the interop harness (interop/) runs Stwo's own functions against this
-implementation value for value at both parameter points, and three committed real proofs verify end to
-end on testnet. What helps most now:
+implementation value for value at the toy point, the S8 fold chain and the end-to-end production proofs
+cover the production point, and three committed real proofs verify end to end on testnet. What helps
+most now:
 
 1. A blessing or a correction of the soundness accounting (Section 0, ask 1): does the capacity
    conjecture transfer to this exact construction, and is publishing 100 conjectured with 54.0 proven
@@ -374,11 +381,11 @@ under its citation. Every resolution is self-assessed and stays open to expert c
 
 [RESOLVED 2026 M2/M3a, receipt-cited, open to expert challenge]
 Citation: delivered in the strongest form the item asked for: the interop harness runs Stwo's own
-fold_line and fold_circle_into_line against this implementation value for value at both parameter points
-(interop/, checks E1 to E3; QUERY-3 resolution), the tower and limb order are exercised by the same
-harness and by three committed real Rust proofs verifying end to end
-(interop/fixtures/rust-proofs-full.json), and the deployed contract accepted those proofs on testnet
-(docs/m3-testnet-receipts.md).
+fold_line and fold_circle_into_line against this implementation value for value in checks E1 to E3 at
+the toy point, with the S8 fold chain and the end-to-end production proofs covering the production point
+(interop/; QUERY-3 resolution), the tower and limb order are exercised by the same harness and by three
+committed real Rust proofs verifying end to end (interop/fixtures/rust-proofs-full.json), and the
+deployed contract accepted those proofs on testnet (docs/m3-testnet-receipts.md).
 
 Original text, preserved verbatim:
 
@@ -416,7 +423,9 @@ block limit, 14.80 percent of a block, read_count 3 (docs/m2-cost-exhibit.md). T
 pattern shipped as wire v2: the prover supplies every inverse twiddle and the verifier checks
 t * t^-1 = 1 (tools/test_hints.py re-derives every twiddle from circle math and verifies all committed
 hints). The deployed contract also runs the full verify through the public node's read only endpoint
-(docs/m3-testnet-receipts.md, DRIVER-7 resolution).
+(docs/m3-testnet-receipts.md, DRIVER-7 resolution). The soundness clause of the original ask (is the
+hint-and-check pattern sound here) is not closed by these receipts; it remains open and is fronted in
+Section 0's quick confirmations.
 
 Original text, preserved verbatim:
 
@@ -447,7 +456,9 @@ production verify, HTTP 200, okay true, result 0x03; docs/m3-testnet-receipts.md
 rather than scaled: one full production verify() = runtime 739929603, 14.80 percent of a block
 (docs/m2-cost-exhibit.md). Part (c) shipped as wire v2: the prover supplies the 1/y hint and the 15 line
 1/x hints per query and the verifier multiplies and compares to 1; tools/test_hints.py verifies every
-committed hint against independently recomputed twiddles.
+committed hint against independently recomputed twiddles. The sanction half of part (c), whether
+hint-and-check is the sound mitigation and not merely the shipped one, is not closed by these receipts;
+it remains open and is fronted in Section 0's quick confirmations.
 
 Original text, preserved verbatim:
 
