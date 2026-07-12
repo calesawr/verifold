@@ -186,6 +186,87 @@ def test_hint_check_quotes_the_exact_guard_line():
             " (some true) none))") in out
 
 
+def test_verify_signature_slices_the_real_entry_point():
+    out = g.emit_verify_signature()
+    assert "(define-read-only (driver/verify" in out
+    assert "(queries (list 23 {" in out
+    # the body must NOT leak into the signature block
+    assert "schedule/get-params" not in out.replace(
+        "<!-- generated", "")
+    # all 14 parameters present, in order, in the table
+    for i, name in enumerate(["pub", "trace-root", "comp-root", "t-z",
+                              "t-gz", "t-g2z", "c0-z", "c1-z", "c2-z",
+                              "c3-z", "fri-roots", "final", "nonce",
+                              "queries"], 1):
+        assert "| {} | {} |".format(i, name) in out, name
+
+
+def test_attest_integration_reads_receipts_not_inline():
+    out = g.emit_attest_integration()
+    receipts = g.read_text(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "docs", "m3-testnet-receipts.md"))
+    import re as _re
+    deployer = _re.search(r"Deployer: (ST[0-9A-Z]+)", receipts).group(1)
+    assert deployer in out
+    assert deployer + ".verifold-flat-full-production" in out
+    assert deployer + ".verifold-attest" in out
+    m = _re.search(r"verifold-flat-full-production\n(?:.*\n)*?"
+                   r"- Tx status: success, block height (\d+)", receipts)
+    assert "| deploy block | {} |".format(m.group(1)) in out
+    assert "(define-public (attest" in out
+    assert ("contract-call? .verifold-flat-full-production"
+            " driver/verify") in out
+
+
+def test_soundness_accounting_reproduces_bits_output():
+    import soundness
+    out = g.emit_soundness_accounting()
+    b = soundness.bits(params.PRODUCTION_POINT)
+    t = b["terms"]
+    for needle in (str(t["query_term"]), str(t["proven_query_term"]),
+                   str(t["grinding_term"]), str(t["ood_term"]),
+                   str(t["transcript_term"]), t["applied_cap"],
+                   str(b["conjectured"]), str(b["proven"])):
+        assert needle in out, needle
+    assert "UNPROVEN" in out
+    # the two headlines must sit in the same block, never apart
+    assert out.index("conjectured") < out.index("proven (Johnson")
+
+
+def test_deviations_register_rows_anchored_and_mnemonic_excluded():
+    out = g.emit_deviations_register()
+    for needle in ("untagged leaf hash", "leaf/node domain separation",
+                   "deduplicated", "reduction bias", "error sum",
+                   "query index modulus", "sha256 duplex",
+                   "circle domain conventions"):
+        assert needle in out, needle
+    assert "mnemonic" not in out  # deploy key handling is not protocol
+    # every row names a tracker in the packet
+    rows = [l for l in out.split("\n") if l.startswith("| ") and
+            l.count("|") == 5 and "---" not in l and "default" not in l]
+    assert len(rows) == len(g.DEVIATIONS) == 8
+    for r in rows:
+        assert "expert-review-questions.md" in r, r
+
+
+def test_conjectured_figure_never_travels_alone():
+    def check(text):
+        for para in text.split("\n\n"):
+            low = para.lower()
+            if "conjectur" in low and "100" in para:
+                assert "unproven" in low, para[:120]
+                assert "54.0" in para, para[:120]
+    # negative control: a bare conjectured claim must trip the gate
+    try:
+        check("the verifier reaches 100 bits of conjectured security")
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("pairing gate is vacuous")
+    check(g.read_text(g.SPEC))
+
+
 TESTS = [
     test_begin_without_end_fails,
     test_end_without_begin_fails,
@@ -206,6 +287,11 @@ TESTS = [
     test_deep_openings_table_rows_verified_against_deep_row,
     test_fri_layer_table_sizes_and_layer_count,
     test_hint_check_quotes_the_exact_guard_line,
+    test_verify_signature_slices_the_real_entry_point,
+    test_attest_integration_reads_receipts_not_inline,
+    test_soundness_accounting_reproduces_bits_output,
+    test_deviations_register_rows_anchored_and_mnemonic_excluded,
+    test_conjectured_figure_never_travels_alone,
 ]
 
 if __name__ == "__main__":

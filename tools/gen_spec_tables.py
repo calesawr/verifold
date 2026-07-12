@@ -378,6 +378,176 @@ def emit_hint_check():
     ])
 
 
+def emit_verify_signature():
+    flat = read_text(FLAT)
+    sig = contract_slice(flat, "(define-read-only (driver/verify",
+                         "(let ((params (schedule/get-params))")
+    names = re.findall(r"^    \((\S+) ", sig, flags=re.M)
+    expected = ["pub", "trace-root", "comp-root", "t-z", "t-gz",
+                "t-g2z", "c0-z", "c1-z", "c2-z", "c3-z", "fri-roots",
+                "final", "nonce", "queries"]
+    assert names == expected, names
+    qm31 = "QM31 tuple { c0, c1, c2, c3: uint }"
+    kinds = {
+        "pub": "(buff 256): public input bytes; the statement binds"
+               " sha256(pub) through ctx",
+        "trace-root": "(buff 32): Merkle root of the trace column",
+        "comp-root": "(buff 32): Merkle root of the four composition"
+                     " columns",
+        "t-z": qm31 + ": trace opened at z",
+        "t-gz": qm31 + ": trace opened at gz",
+        "t-g2z": qm31 + ": trace opened at g^2 z",
+        "c0-z": qm31 + ": composition column 0 opened at z",
+        "c1-z": qm31 + ": composition column 1 opened at z",
+        "c2-z": qm31 + ": composition column 2 opened at z",
+        "c3-z": qm31 + ": composition column 3 opened at z",
+        "fri-roots": "(list 16 (buff 32)): the committed FRI layer"
+                     " roots, layer order",
+        "final": qm31 + ": the transmitted degree 0 final value",
+        "nonce": "(buff 8): the proof of work nonce",
+        "queries": "(list 23 ...): one decommitment bundle per drawn"
+                   " query; the full tuple shape is in the listing",
+    }
+    out = [src_note("contracts/verifold-flat-full-production.clar"
+                    " (driver/verify signature, sliced between verified"
+                    " anchors; the 14 name table is parsed from the"
+                    " slice on every run)"), "",
+           "| # | parameter | type and meaning |", "| --- | --- | --- |"]
+    out += ["| {} | {} | {} |".format(i + 1, n, kinds[n])
+            for i, n in enumerate(names)]
+    out += ["", "```clarity", sig, "```"]
+    return "\n".join(out)
+
+
+ATTEST = os.path.join(ROOT, "contracts", "verifold-attest.clar")
+RECEIPTS = os.path.join(ROOT, "docs", "m3-testnet-receipts.md")
+
+
+def emit_attest_integration():
+    attest = read_text(ATTEST)
+    idx = attest.index("(define-public (attest")
+    code = attest[idx:].rstrip("\n")
+    assert ("contract-call? .verifold-flat-full-production"
+            " driver/verify") in code
+    receipts = read_text(RECEIPTS)
+    deployer = re.search(r"Deployer: (ST[0-9A-Z]+)", receipts).group(1)
+    verifier_id = deployer + ".verifold-flat-full-production"
+    attest_id = deployer + ".verifold-attest"
+    assert "### " + verifier_id in receipts, verifier_id
+    assert "### " + attest_id in receipts, attest_id
+    m = re.search(r"verifold-flat-full-production\n(?:.*\n)*?"
+                  r"- Tx status: success, block height (\d+)", receipts)
+    assert m, "deploy block not found in receipts"
+    block = m.group(1)
+    out = [src_note("contracts/verifold-attest.clar (the attest entry"
+                    " point, verbatim); docs/m3-testnet-receipts.md"
+                    " (live identifiers, parsed at run time)"), "",
+           "| identifier | value |", "| --- | --- |",
+           "| deployer | {} |".format(deployer),
+           "| verifier contract | {} |".format(verifier_id),
+           "| consumer contract | {} |".format(attest_id),
+           "| deploy block | {} |".format(block),
+           "| receipts | docs/m3-testnet-receipts.md |",
+           "", "```clarity", code, "```"]
+    return "\n".join(out)
+
+
+def emit_soundness_accounting():
+    import soundness
+    pt = params.PRODUCTION_POINT
+    b = soundness.bits(pt)
+    t = b["terms"]
+    return "\n".join([
+        src_note("tools/soundness.py bits(PRODUCTION_POINT);"
+                 " tools/params.py (the point values)"), "",
+        "| term | bits | derivation |", "| --- | --- | --- |",
+        "| query_term | {} | n_queries * log_blowup = {} * {} |".format(
+            t["query_term"], pt["n_queries"], pt["log_blowup"]),
+        "| proven_query_term | {} | query_term / 2, the Johnson bound"
+        " halving |".format(t["proven_query_term"]),
+        "| grinding_term | {} | pow_bits |".format(t["grinding_term"]),
+        "| ood_term | {} | 4 * log2(p), the QM31 challenge space"
+        " ceiling |".format(t["ood_term"]),
+        "| transcript_term | {} | the 16 byte sha256 read ceiling |"
+        .format(t["transcript_term"]),
+        "| applied_cap | {} | both additive sums sit below both"
+        " ceilings |".format(t["applied_cap"]),
+        "",
+        "Headline, conjectured (UNPROVEN; ethSTARK Conjecture 1 style"
+        " capacity accounting, IACR ePrint 2021/582): {} bits ="
+        " query_term + grinding_term. The proven companion below is"
+        " {} bits.".format(b["conjectured"], b["proven"]),
+        "",
+        "Headline, proven (Johnson bound): {} bits = proven_query_term"
+        " + grinding_term.".format(b["proven"]),
+    ])
+
+
+DEVIATIONS = [
+    ("untagged leaf hash",
+     "a Merkle leaf is sha256 of the 16 byte QM31 encoding with no"
+     " leaf tag byte",
+     "contracts/full/commit.clar", "Leaf is UNTAGGED sha256(16B)",
+     "docs/expert-review-questions.md item 10 and DRIVER-1"),
+    ("no leaf/node domain separation",
+     "an interior node is sha256 of the two child hashes with no node"
+     " tag byte",
+     "contracts/full/commit.clar",
+     "leaf/node domain separation is a DOCUMENTED DEFAULT",
+     "docs/expert-review-questions.md item 10 and CAIR-2"),
+    ("drawn, not deduplicated, query indices",
+     "the 23 query indices are drawn independently and never"
+     " deduplicated",
+     "contracts/full/schedule.clar", "query-idx-step",
+     "docs/expert-review-questions.md DRIVER-3 and CAIR-7; quantified"
+     " in docs/m2-soundness.md"),
+    ("squeeze reduction bias",
+     "challenges reduce 16 big endian sha256 bytes mod p, total"
+     " variation bias about 2^-124",
+     "contracts/full/transcript.clar", "bias ~2^-124",
+     "docs/expert-review-questions.md item 8"),
+    ("minimum, not error sum, soundness cap",
+     "the soundness ceilings combine as a minimum rather than an error"
+     " sum",
+     "tools/soundness.py", "cap = min(ood_term, transcript_term)",
+     "docs/expert-review-questions.md item 3 and DRIVER-9; quantified"
+     " in docs/m2-soundness.md"),
+    ("query index modulus",
+     "each drawn index is the squeezed m31 value reduced mod"
+     " DOMAIN_SIZE",
+     "contracts/full/schedule.clar", "DOCUMENTED DEFAULT",
+     "docs/expert-review-questions.md QUERY-5 and DRIVER-3"),
+    ("sha256 duplex transcript",
+     "the whole Fiat-Shamir construction is a single digest sha256"
+     " duplex with 1 byte op tags",
+     "contracts/full/transcript.clar", "Design (locked",
+     "docs/expert-review-questions.md item 5 and CAIR-6"),
+    ("circle domain conventions",
+     "coset offset, bit reversal direction, first fold twiddle, and"
+     " mask shift semantics follow Stwo as read; empirically cross"
+     " checked by the gear 6f interop harness, still awaiting expert"
+     " blessing",
+     "contracts/full/query.clar",
+     "documented defaults matching Stwo's source",
+     "docs/expert-review-questions.md QUERY-1 to QUERY-6"),
+]
+
+
+def emit_deviations_register():
+    out = [src_note("the hand maintained DEVIATIONS list in"
+                    " tools/gen_spec_tables.py; every source anchor is"
+                    " re-verified against its file on every run"), "",
+           "| # | default | where it lives | tracked by |",
+           "| --- | --- | --- | --- |"]
+    for i, (name, what, where, anchor, tracker) in enumerate(
+            DEVIATIONS, 1):
+        assert anchor in read_text(os.path.join(ROOT, where)), \
+            (name, where, anchor)
+        out.append("| {} | {}: {} | {} | {} |".format(
+            i, name, what, where, tracker))
+    return "\n".join(out)
+
+
 EMITTERS = {
     "field-constants": emit_field_constants,
     "qm31-tower": emit_qm31_tower,
@@ -390,13 +560,13 @@ EMITTERS = {
     "deep-openings": emit_deep_openings,
     "fri-layer-table": emit_fri_layer_table,
     "hint-check": emit_hint_check,
+    "verify-signature": emit_verify_signature,
+    "attest-integration": emit_attest_integration,
+    "soundness-accounting": emit_soundness_accounting,
+    "deviations-register": emit_deviations_register,
 }
 
 PENDING = {
-    "verify-signature": "Task 4",
-    "attest-integration": "Task 4",
-    "soundness-accounting": "Task 4",
-    "deviations-register": "Task 4",
     "vector-ctx": "Task 5",
     "vector-challenges": "Task 5",
     "vector-query-bundle": "Task 5",
