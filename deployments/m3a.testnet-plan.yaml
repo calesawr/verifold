@@ -1,0 +1,24 @@
+id: 0
+name: M3a testnet deployment
+network: testnet
+stacks-node: https://api.testnet.hiro.so
+bitcoin-node: http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332
+plan:
+  batches:
+  - id: 0
+    transactions:
+    - transaction-type: contract-publish
+      contract-name: verifold-flat-full-production
+      expected-sender: ST3GWNV45EC10P42Y7M7RCK6VP6NS9W47GAZHH9F
+      cost: 549260
+      path: contracts/verifold-flat-full-production.clar
+      anchor-block-only: true
+      clarity-version: 3
+    - transaction-type: contract-publish
+      contract-name: verifold-attest
+      expected-sender: ST3GWNV45EC10P42Y7M7RCK6VP6NS9W47GAZHH9F
+      cost: 39780
+      path: contracts/verifold-attest.clar
+      anchor-block-only: true
+      clarity-version: 3
+    epoch: '3.1'
