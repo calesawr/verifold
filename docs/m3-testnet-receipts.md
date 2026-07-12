@@ -203,3 +203,13 @@ Transaction pages for all seven transactions:
 - attest 3 (interop-2): https://explorer.hiro.so/txid/0x46537da25b831bbd9b172af3a1b1d83285ea8368d1b9f4862b605719ada14238?chain=testnet
 - attest 4 (m3-demo-1): https://explorer.hiro.so/txid/0x5aed2188477c491967d9f03833032192153164a1a7cae897977af91aabd1c398?chain=testnet
 - attest 5 (m3-demo-2): https://explorer.hiro.so/txid/0x91899e3f044ca8b0be51a857769b12472ae8c0e0a543cda34e8aded3041fb5eb?chain=testnet
+
+## Note added 2026-07-12 (reviewer question, answered)
+
+Four of the five attestation tuples record the same burn block height
+(0x2f5af = 194991) even though they confirmed at four different Stacks block
+heights (4040281 through 4040284): under Nakamoto, one Bitcoin block (the
+burn block) can anchor many Stacks blocks, so several attest transactions
+confirmed in different Stacks blocks legitimately share one burn height; the
+`attestations` map records burn-block-height, not Stacks-block-height, by
+contract design (see `contracts/verifold-attest.clar`).
