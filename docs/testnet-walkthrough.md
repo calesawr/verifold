@@ -8,12 +8,13 @@ What is live (deployed 2026-07-12, receipts in docs/m3-testnet-receipts.md):
 ## 1. What you need
 
 git, Node 24 with npm, Rust (the nightly pinned in interop/rust-toolchain.toml
-installs itself via rustup), Python 3.11 or newer, and a wallet that can hold a
-THROWAWAY testnet key. Never reuse a key that has ever touched mainnet funds.
+installs itself via rustup), Python 3.11 or newer, curl and sha256sum (standard
+on Linux and macOS), and a wallet that can hold a THROWAWAY testnet key. Never
+reuse a key that has ever touched mainnet funds.
 
 ## 2. Clone and check the deployed code is this repo's code
 
-    git clone <repo url> && cd verifold
+    git clone https://github.com/calesawr/verifold && cd verifold
     npm ci
     python3 tools/flatten.py --point full --production
     git diff --exit-code contracts/verifold-flat-full-production.clar
@@ -48,9 +49,12 @@ curl -s -X POST "https://api.testnet.hiro.so/extended/v1/faucets/stx?address=<yo
       --fixture interop/fixtures/my-proof.json --pub "your-handle" \
       --contract ST3GWNV45EC10P42Y7M7RCK6VP6NS9W47GAZHH9F.verifold-attest
 
-The tool prints the transaction size and the network fee estimate before
-broadcasting, then the txid, the fee paid, and blocks to inclusion. For scale,
-our five recorded attests, all ~196KB transactions (docs/m3-testnet-receipts.md):
+The tool prints the transaction size and the network fee estimate, then stops
+and asks `broadcast this transaction? type yes to continue:`; nothing is sent
+until you type the literal word yes (pass `--yes` to skip the prompt in
+scripts). After broadcast it prints the txid, the fee paid, and blocks to
+inclusion. For scale, our five recorded attests, all ~196KB transactions
+(docs/m3-testnet-receipts.md):
 
 | pub | estimated fee (microSTX) | actual fee (microSTX) | inclusion blocks |
 |---|---|---|---|

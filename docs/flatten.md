@@ -54,12 +54,16 @@ node's `/v2/contracts/interface` endpoint serves all 92 functions with their
 (`POST /v2/contracts/call-read/<deployer>/verifold-flat/field%2Fm31-add`
 with u2 and u3) returned `{"okay":true,"result":"0x01..05"}` (u5). The `/`
 separator survives a real node on the wire; the `--` fallback is not needed.
-Scope note, stated honestly: the Hiro stacks-blockchain-api could not run in
-this environment (with clarinet 3.19, api 9.0.0 crashes during the snapshot
-event import and api 8.15.4 cannot ingest the snapshot chain; see the comment
-in settings/Devnet.toml), so indexer-side handling of `/` names remains
-unverified. The node, clarinet check, the sdk simnet, and the RPC wire format
-all accept them.
+Scope note, historical (2026-07-11): the Hiro stacks-blockchain-api could not
+run in this environment (with clarinet 3.19, api 9.0.0 crashes during the
+snapshot event import and api 8.15.4 cannot ingest the snapshot chain; see the
+comment in settings/Devnet.toml), so at devnet time indexer-side handling of
+`/` names remained unverified. The node, clarinet check, the sdk simnet, and
+the RPC wire format all accept them. CLOSED on 2026-07-12 by the testnet
+deployment: the Hiro indexer ingested the deployed production verifier with
+all 114 slash-named functions present in its ABI and the contract canonical
+(receipts in docs/m3-testnet-receipts.md). Indexer-side `/` handling is
+verified; no separator change is needed.
 
 ## Production profile (deploy time only)
 

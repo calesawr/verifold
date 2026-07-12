@@ -207,9 +207,26 @@ Transaction pages for all seven transactions:
 ## Note added 2026-07-12 (reviewer question, answered)
 
 Four of the five attestation tuples record the same burn block height
-(0x2f5af = 194991) even though they confirmed at four different Stacks block
+(0x2f5af = 193967) even though they confirmed at four different Stacks block
 heights (4040281 through 4040284): under Nakamoto, one Bitcoin block (the
 burn block) can anchor many Stacks blocks, so several attest transactions
 confirmed in different Stacks blocks legitimately share one burn height; the
 `attestations` map records burn-block-height, not Stacks-block-height, by
 contract design (see `contracts/verifold-attest.clar`).
+
+## Correction note added 2026-07-12
+
+The sentence in the on-chain state check section above reading "(0x2f5ae =
+194990 and 0x2f5af = 194991)" carries wrong decimal conversions. The correct
+values are 0x2f5ae = 193966 and 0x2f5af = 193967 (verify with `python3 -c
+'print(0x2f5ae, 0x2f5af)'`). The hex values pasted from the chain are
+correct; only the decimal glosses were wrong. Per the append-only rule the
+original sentence is left in place and corrected here.
+
+## Note added 2026-07-12 (artifact byte size, for the walkthrough)
+
+The committed contracts/verifold-flat-full-production.clar and the source
+returned by /v2/contracts/source for the deployed contract each measure
+exactly 54926 bytes (`wc -c` on both files; the deployment section above
+already records them byte-identical, cmp clean). Recorded here so the byte
+figure cited in docs/testnet-walkthrough.md traces to this file.
