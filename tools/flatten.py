@@ -974,6 +974,17 @@ def emit_flat(gears, extra=None, full=False, texts=None):
 PRODUCTION_DEMOTE = {("driver", "verify-query")}
 
 
+def apply_production_demotions(by_name, extra):
+    """Merge the PRODUCTION_DEMOTE visibility edits into an emission edit
+    dict in place and return it. Shared by the toy deploy profile and the
+    M3a full deploy profile so the demotion set can never fork by point."""
+    for gname, fname in sorted(PRODUCTION_DEMOTE):
+        d = by_name[gname].defs[fname]
+        extra.setdefault(gname, []).append(
+            (d.head_tok.start, d.head_tok.end, "define-private"))
+    return extra
+
+
 # ---------------- Layer 4: the mutation smoke hook ----------------
 
 def mutation_edit(by_name, spec):
@@ -1091,24 +1102,32 @@ def full_gear_header(name):
 def emit_full(gears, by_name, opts, extra=None):
     """Production emission: 11 full gear sources (refs rewritten .X ->
     .X-full), the flattened full artifact, and the full manifest. Under
-    --mutate only the flat artifact is written (Layer 4 smoke, one file)."""
+    --mutate only the flat artifact is written (Layer 4 smoke, one file).
+    Under --production ONLY contracts/verifold-flat-full-production.clar
+    is written: gear sources, manifest, and the equivalence artifact stay
+    untouched, and the provenance header is byte-identical to
+    verifold-flat-full.clar's so the two committed artifacts differ by
+    exactly the demoted verify-query keyword (pinned by test)."""
     extra = extra or {}
+    side_files = not opts["mutate"] and not opts["production"]
     full_dir = os.path.join(REPO_ROOT, "contracts", "full")
     os.makedirs(full_dir, exist_ok=True)
     full_texts = {g.name: full_gear_header(g.name) + rewrite_full_refs(g.src)
                   for g in gears}
-    if not opts["mutate"]:
+    if side_files:
         for g in gears:
             path = os.path.join(full_dir, f"{g.name}.clar")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(full_texts[g.name])
             print(f"wrote {path}")
     flat = emit_flat(gears, extra, full=True, texts=full_texts)
-    out = os.path.join(REPO_ROOT, "contracts", "verifold-flat-full.clar")
+    artifact = ("verifold-flat-full-production.clar" if opts["production"]
+                else "verifold-flat-full.clar")
+    out = os.path.join(REPO_ROOT, "contracts", artifact)
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(flat)
     print_stats(flat, gears)
-    if not opts["mutate"]:
+    if side_files:
         manifest_path = os.path.join(REPO_ROOT, "tools", "flat-manifest-full.json")
         manifest = build_manifest(gears, contract="verifold-flat-full",
                                   input_dir="contracts/full",
@@ -1128,9 +1147,6 @@ def main(argv):
     if unknown:
         raise SystemExit(f"unknown gears: {unknown}")
     names = [n for n in GEAR_ORDER if n in names]  # always emit in deploy order
-    if opts["point"] == "full" and opts["production"]:
-        raise SystemExit("--point full is exclusive with --production "
-                         "(the deployable full profile is M3 work)")
     if opts["point"] == "full" and opts["gears"]:
         raise SystemExit("--point full emits all gears; --gears is toy-only")
     if opts["point"] == "full" and opts["out_given"]:
@@ -1143,13 +1159,12 @@ def main(argv):
         extra.setdefault(gname, []).append(edit)
         print(f"MUTATED ARTIFACT (Layer 4 smoke only, do NOT commit): {opts['mutate']}")
     if opts["point"] == "full":
+        if opts["production"]:
+            apply_production_demotions(by_name, extra)
         emit_full(gears, by_name, opts, extra)
         return
     if opts["production"]:
-        for gname, fname in sorted(PRODUCTION_DEMOTE):
-            d = by_name[gname].defs[fname]
-            extra.setdefault(gname, []).append(
-                (d.head_tok.start, d.head_tok.end, "define-private"))
+        apply_production_demotions(by_name, extra)
         if not opts["out_given"]:
             opts["out"] = os.path.join(REPO_ROOT, "contracts",
                                        "verifold-flat-production.clar")

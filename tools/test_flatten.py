@@ -581,13 +581,68 @@ def test_manifest_span_offset_basis_full_only():
 def test_main_refuses_out_at_full_point():
     # Finding 3 (Task 12 review): --out was silently ignored at --point full
     # (emit_full writes fixed paths regardless); main() must refuse it the
-    # same way it already refuses --gears and --production at full.
+    # same way it already refuses --gears at full; --production at full is
+    # the M3a deploy profile (see apply_production_demotions).
     try:
         flatten.main(["--point", "full", "--out", "/tmp/should-not-write.clar"])
     except SystemExit as e:
         assert "--out" in str(e), str(e)
     else:
         assert False, "expected SystemExit"
+
+
+def test_apply_production_demotions_at_full_point():
+    # M3a Stage A: the shared demotion helper applies at the FULL point;
+    # the emitted text flips exactly the verify-query head keyword and
+    # leaves the sound entry read-only.
+    gears, by_name = flatten.build(list(flatten.GEAR_ORDER), "full")
+    extra = flatten.apply_production_demotions(by_name, {})
+    full_texts = {g.name: flatten.full_gear_header(g.name)
+                  + flatten.rewrite_full_refs(g.src) for g in gears}
+    flat = flatten.emit_flat(gears, extra, full=True, texts=full_texts)
+    assert "(define-private (driver/verify-query" in flat
+    assert "(define-read-only (driver/verify-query" not in flat
+    assert "(define-read-only (driver/verify" in flat  # the sound entry stays
+    clean = flatten.emit_flat(gears, full=True, texts=full_texts)
+    assert len(clean) - len(flat) == \
+        len("define-read-only") - len("define-private")
+
+
+def test_full_production_committed_artifact_is_one_keyword_diff():
+    # The two COMMITTED artifacts differ by exactly one line: the
+    # driver/verify-query head, define-read-only -> define-private.
+    # Doubles as a drift tripwire for both files.
+    with open(os.path.join(flatten.REPO_ROOT, "contracts",
+                           "verifold-flat-full.clar"), encoding="utf-8") as fh:
+        full_lines = fh.read().split("\n")
+    with open(os.path.join(flatten.REPO_ROOT, "contracts",
+                           "verifold-flat-full-production.clar"),
+              encoding="utf-8") as fh:
+        prod_lines = fh.read().split("\n")
+    assert len(full_lines) == len(prod_lines), \
+        (len(full_lines), len(prod_lines))
+    diffs = [(i, x, y) for i, (x, y)
+             in enumerate(zip(full_lines, prod_lines)) if x != y]
+    assert len(diffs) == 1, [d[0] for d in diffs]
+    _i, x, y = diffs[0]
+    assert x == "(define-read-only (driver/verify-query", x
+    assert y == "(define-private (driver/verify-query", y
+
+
+def test_full_production_emission_deterministic():
+    gears1, by1 = flatten.build(list(flatten.GEAR_ORDER), "full")
+    gears2, by2 = flatten.build(list(flatten.GEAR_ORDER), "full")
+    texts1 = {g.name: flatten.full_gear_header(g.name)
+              + flatten.rewrite_full_refs(g.src) for g in gears1}
+    texts2 = {g.name: flatten.full_gear_header(g.name)
+              + flatten.rewrite_full_refs(g.src) for g in gears2}
+    one = flatten.emit_flat(
+        gears1, flatten.apply_production_demotions(by1, {}),
+        full=True, texts=texts1)
+    two = flatten.emit_flat(
+        gears2, flatten.apply_production_demotions(by2, {}),
+        full=True, texts=texts2)
+    assert one == two
 
 
 TESTS = [
@@ -648,6 +703,9 @@ TESTS = [
     test_full_census_pinned,
     test_manifest_span_offset_basis_full_only,
     test_main_refuses_out_at_full_point,
+    test_apply_production_demotions_at_full_point,
+    test_full_production_committed_artifact_is_one_keyword_diff,
+    test_full_production_emission_deterministic,
 ]
 
 if __name__ == "__main__":
