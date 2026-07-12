@@ -148,6 +148,44 @@ def test_transcript_schedule_matches_contract_and_kats():
     assert "mod {}".format(dom) in out
 
 
+def test_air_constants_cross_checks_params_against_contract():
+    out = g.emit_air_constants()
+    d = params.derived(params.PRODUCTION_POINT)
+    for needle in (str(d["SX"]), str(d["SY"]), str(d["SEL"]["A"]),
+                   str(d["SEL"]["B"]), str(d["B01"]["B"])):
+        assert needle in out, needle
+    # registry rows come from params.POINTS, not from prose
+    assert "| 10 | TOY_POINT |" in out
+    assert "PRODUCTION_POINT" in out
+    assert "air_id registry is monotonic" in out  # quoted from params.py
+
+
+def test_deep_openings_table_rows_verified_against_deep_row():
+    out = g.emit_deep_openings()
+    assert "(define-read-only (cdeep/deep-row" in out
+    assert "(define-read-only (cdeep/line-coeffs" in out
+    assert "(define-read-only (cdeep/denom-inv" in out
+    for w in ("gamma^2", "gamma^3", "gamma^4", "gamma^5", "gamma^6"):
+        assert w in out, w
+    assert "(cdeep/line-coeffs zy c3-z g6)" in out  # anchor column live
+
+
+def test_fri_layer_table_sizes_and_layer_count():
+    out = g.emit_fri_layer_table()
+    d = params.derived(params.PRODUCTION_POINT)
+    assert "| 0 | {} |".format(d["DOMAIN_SIZE"]) in out
+    assert "| {} | 2 |".format(d["N_LAYERS"]) in out  # transmitted final
+    assert out.count("committed (fri root") == d["N_LAYERS"]
+    assert "transmitted" in out
+
+
+def test_hint_check_quotes_the_exact_guard_line():
+    out = g.emit_hint_check()
+    assert "(define-read-only (fri/fri-fold-step-hint" in out
+    assert ("(unwrap-panic (if (is-eq (field/m31-mul x hint) u1)"
+            " (some true) none))") in out
+
+
 TESTS = [
     test_begin_without_end_fails,
     test_end_without_begin_fails,
@@ -164,6 +202,10 @@ TESTS = [
     test_merkle_leaf_encoding_quotes_contract_and_example_is_real,
     test_transcript_operations_tags_come_from_contract,
     test_transcript_schedule_matches_contract_and_kats,
+    test_air_constants_cross_checks_params_against_contract,
+    test_deep_openings_table_rows_verified_against_deep_row,
+    test_fri_layer_table_sizes_and_layer_count,
+    test_hint_check_quotes_the_exact_guard_line,
 ]
 
 if __name__ == "__main__":

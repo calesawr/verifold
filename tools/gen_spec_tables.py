@@ -244,6 +244,140 @@ def emit_transcript_schedule():
     return "\n".join(out)
 
 
+def emit_air_constants():
+    d = params.derived(params.PRODUCTION_POINT)
+    flat = read_text(FLAT)
+    cair = {}
+    for name in ("SX", "SY", "SEL_A", "SEL_B", "SEL_C",
+                 "B01_A", "B01_B", "B01_C"):
+        m = re.search(r"\(define-constant cair/" + name + r" u(\d+)\)",
+                      flat)
+        assert m, name
+        cair[name] = int(m.group(1))
+    # the contract constants must equal the math recomputed by params.py
+    assert (cair["SX"], cair["SY"]) == (d["SX"], d["SY"])
+    assert (cair["SEL_A"], cair["SEL_B"], cair["SEL_C"]) == \
+        (d["SEL"]["A"], d["SEL"]["B"], d["SEL"]["C"])
+    assert (cair["B01_A"], cair["B01_B"], cair["B01_C"]) == \
+        (d["B01"]["A"], d["B01"]["B"], d["B01"]["C"])
+    # air_id registry rows from params.POINTS (id -> point names)
+    by_id = {}
+    for name in sorted(params.POINTS):
+        by_id.setdefault(params.POINTS[name]["air_id"], []).append(name)
+    # the registry rule, quoted from the params.py source comment
+    psrc = read_text(os.path.join(HERE, "params.py"))
+    rule = [" ".join(l[1:].split()) for l in psrc.split("\n")
+            if l.startswith("#") and ("air_id registry is monotonic" in l
+                                      or "production-trace circle" in l
+                                      or "never reuse a retired id" in l)]
+    assert rule, "params.py registry comment drifted"
+    out = [src_note("tools/params.py (derived() SEL/B01, POINTS, the"
+                    " registry comment); cross-checked against the cair"
+                    " constants in contracts/"
+                    "verifold-flat-full-production.clar"), "",
+           "Selector and boundary lines (A*x + B*y + C, M31"
+           " coefficients), equal in params.py and the contract:", "",
+           "| line | A | B | C | vanishes on |", "| --- | --- | --- |"
+           " --- | --- |",
+           "| SEL | {A} | {B} | {C} | the last two trace coset points |"
+           .format(**d["SEL"]),
+           "| B01 | {A} | {B} | {C} | the first two trace coset points |"
+           .format(**d["B01"]),
+           "", "Trace step (S = generator of the trace coset walk):", "",
+           "| constant | value |", "| --- | --- |",
+           "| SX | {} |".format(d["SX"]),
+           "| SY | {} |".format(d["SY"]),
+           "", "air_id registry (from params.POINTS):", "",
+           "| air_id | parameter points carrying it |", "| --- | --- |"]
+    out += ["| {} | {} |".format(k, ", ".join(v))
+            for k, v in sorted(by_id.items())]
+    out += ["", "Registry rule, quoted from tools/params.py:", "",
+            "```text"] + rule + ["```"]
+    return "\n".join(out)
+
+
+def emit_deep_openings():
+    flat = read_text(FLAT)
+    helpers = contract_slice(flat,
+                             "(define-read-only (cdeep/line-coeffs",
+                             "(define-private (cdeep/rot-s")
+    deep = contract_slice(flat, "(define-read-only (cdeep/deep-row",
+                          ";; ========================= gear: merkle")
+    rows = [
+        ("t(z)", "1 (gamma^0)", "(cdeep/line-coeffs zy t-z one)"),
+        ("t(gz)", "gamma", "(cdeep/line-coeffs (get y z1) t-gz gamma)"),
+        ("t(g^2 z)", "gamma^2",
+         "(cdeep/line-coeffs (get y z2) t-g2z g2)"),
+        ("c0(z)", "gamma^3", "(cdeep/line-coeffs zy c0-z g3)"),
+        ("c1(z)", "gamma^4", "(cdeep/line-coeffs zy c1-z g4)"),
+        ("c2(z)", "gamma^5", "(cdeep/line-coeffs zy c2-z g5)"),
+        ("c3(z)", "gamma^6", "(cdeep/line-coeffs zy c3-z g6)"),
+    ]
+    for _, _, anchor in rows:
+        assert anchor in deep, anchor  # a weight reshuffle fails loudly
+    out = [src_note("contracts/verifold-flat-full-production.clar"
+                    " (cdeep gear: line-coeffs, denom-inv, quot-term,"
+                    " deep-row); each table row's weight is re-verified"
+                    " against the deep-row source on every run"), "",
+           "| opening | gamma weight | contract anchor |",
+           "| --- | --- | --- |"]
+    out += ["| {} | {} | `{}` |".format(*r) for r in rows]
+    out += ["", "```clarity", helpers, "", deep, "```"]
+    return "\n".join(out)
+
+
+def emit_fri_layer_table():
+    d = params.derived(params.PRODUCTION_POINT)
+    flat = read_text(FLAT)
+    n_layers, dom = d["N_LAYERS"], d["DOMAIN_SIZE"]
+    # cross-checks: the contract carries exactly these layer counts
+    l = int(re.search(r"\(define-constant schedule/L u(\d+)\)",
+                      flat).group(1))
+    assert l == n_layers, (l, n_layers)
+    line_xs = re.findall(r"\(define-read-only \(driver/line-x(\d+) ",
+                         flat)
+    assert sorted(int(x) for x in line_xs) == \
+        list(range(1, n_layers)), line_xs
+    rows = [("0", dom, "committed (fri root 0)",
+             "circle: y of the even paired query point")]
+    for k in range(1, n_layers):
+        rows.append((str(k), dom >> k,
+                     "committed (fri root {})".format(k),
+                     "line: pi applied {} times to the layer base x"
+                     .format(k - 1)))
+    rows.append((str(n_layers), dom >> n_layers,
+                 "transmitted degree 0 final value, compared per query,"
+                 " never committed", "none"))
+    out = [src_note("tools/params.py (derived() N_LAYERS, DOMAIN_SIZE);"
+                    " cross-checked against schedule/L and the"
+                    " driver/line-x ladder in contracts/"
+                    "verifold-flat-full-production.clar"), "",
+           "| layer | size | committed or transmitted | twiddle |",
+           "| --- | --- | --- | --- |"]
+    out += ["| {} | {} | {} | {} |".format(*r) for r in rows]
+    return "\n".join(out)
+
+
+def emit_hint_check():
+    flat = read_text(FLAT)
+    code = contract_slice(flat,
+                          "(define-read-only (fri/fri-fold-step-hint",
+                          "(define-private (fri/fold-layer-step-hint")
+    guard = ("(unwrap-panic (if (is-eq (field/m31-mul x hint) u1)"
+             " (some true) none))")
+    assert guard in code, "hint guard drifted"
+    return "\n".join([
+        src_note("contracts/verifold-flat-full-production.clar"
+                 " (fri gear: fri-fold-step-hint; the guard line is"
+                 " re-verified verbatim on every run)"), "",
+        "The wire v2 inverse hint check, verbatim:", "",
+        "```clarity", code, "```", "",
+        "The guard line an independent implementation must reproduce"
+        " exactly:", "",
+        "```clarity", guard, "```",
+    ])
+
+
 EMITTERS = {
     "field-constants": emit_field_constants,
     "qm31-tower": emit_qm31_tower,
@@ -252,13 +386,13 @@ EMITTERS = {
     "merkle-leaf-encoding": emit_merkle_leaf_encoding,
     "transcript-operations": emit_transcript_operations,
     "transcript-schedule": emit_transcript_schedule,
+    "air-constants": emit_air_constants,
+    "deep-openings": emit_deep_openings,
+    "fri-layer-table": emit_fri_layer_table,
+    "hint-check": emit_hint_check,
 }
 
 PENDING = {
-    "air-constants": "Task 3",
-    "deep-openings": "Task 3",
-    "fri-layer-table": "Task 3",
-    "hint-check": "Task 3",
     "verify-signature": "Task 4",
     "attest-integration": "Task 4",
     "soundness-accounting": "Task 4",
