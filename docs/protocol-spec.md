@@ -40,7 +40,7 @@ Base field arithmetic is arithmetic of unsigned integers mod p; a value with a l
 
 The evaluation domain is the canonic coset of size DOMAIN_SIZE on the unit circle x^2 + y^2 = 1 over M31: position i in the first half is OFF * H^i, and position i in the second half is the conjugate of OFF * H^(i minus DOMAIN_SIZE/2) (source: contracts/verifold-flat-full-production.clar, query/domain-point, lines 423 to 427). OFF and H are the derived constants tabulated in section 8.
 
-Bit reversal convention: a query index q addresses the committed evaluation array in bit reversed order. The committed position for q is bitrev(q), the reversal of the low LOG_DOMAIN bits of q (17 bits at the production point), and the domain point a query opens is domain-point(bitrev(q)) (source: contracts/verifold-flat-full-production.clar, query/bitrev and query/query-point, lines 430 to 438). The prover and any independent verifier must apply the reversal exactly once, at this boundary.
+Bit reversal convention: The query index q is itself the committed (Merkle leaf) position; the committed array stores evaluations in bit reversed order, so the domain point a query opens is domain-point(bitrev(q)), the reversal of the low LOG_DOMAIN bits of q (17 bits at the production point) (source: contracts/verifold-flat-full-production.clar, query/bitrev and query/query-point lines 430 to 438, driver/verify-query lines 714 and 731 to 732). The prover and any independent verifier must apply the reversal exactly once, at this boundary.
 
 ## 2. Commitments
 
