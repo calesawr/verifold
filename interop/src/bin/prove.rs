@@ -138,6 +138,15 @@ fn parse_point() -> params::Point {
     }
 }
 
+fn parse_value_flag(name: &str) -> Option<String> {
+    let args: Vec<String> = std::env::args().collect();
+    args.iter().position(|a| a == name).map(|i| {
+        args.get(i + 1)
+            .unwrap_or_else(|| panic!("{name} takes a value"))
+            .clone()
+    })
+}
+
 fn main() {
     let point = parse_point();
     let is_toy = point == params::TOY;
@@ -155,7 +164,16 @@ fn main() {
         point.log_trace, point.log_blowup, point.n_queries, point.pow_bits, point.air_id
     );
 
-    let pubs: Vec<&[u8]> = vec![b"", b"interop-1", b"interop-2"];
+    let pubs_flag = parse_value_flag("--pubs");
+    let out_flag = parse_value_flag("--out");
+    assert!(
+        pubs_flag.is_none() || out_flag.is_some(),
+        "--pubs without --out would overwrite the committed default fixtures; pass --out"
+    );
+    let pubs: Vec<Vec<u8>> = match &pubs_flag {
+        None => vec![b"".to_vec(), b"interop-1".to_vec(), b"interop-2".to_vec()],
+        Some(s) => s.split(',').map(|p| p.as_bytes().to_vec()).collect(),
+    };
     let mut fixtures = vec![];
 
     // pub-independent setup: the LDE domain, FS-ordered points, the trace coset
@@ -225,7 +243,8 @@ fn main() {
     }
     let one = SecureField::from(m(1));
 
-    for pub_bytes in pubs {
+    for pub_bytes in &pubs {
+        let pub_bytes: &[u8] = pub_bytes.as_slice();
         // ---- ctx + trace commit -> alpha ----
         let ctx = [DOMAIN_LABEL, &[point.version()], &point.params_bytes()[..], &sha(&[pub_bytes])]
             .concat();
@@ -449,8 +468,9 @@ fn main() {
         }));
         println!("proved pub={:?}: queries {:?}", String::from_utf8_lossy(pub_bytes), qidx);
     }
-    let dest =
+    let default_dest =
         if is_toy { "fixtures/rust-proofs.json" } else { "fixtures/rust-proofs-full.json" };
+    let dest: &str = out_flag.as_deref().unwrap_or(default_dest);
     let out = serde_json::to_string_pretty(&serde_json::json!(fixtures)).unwrap();
     std::fs::write(dest, out).unwrap();
     println!("wrote {dest}");

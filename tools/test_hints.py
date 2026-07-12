@@ -4,7 +4,10 @@ full driver derives for that query and layer. Twiddles are recomputed HERE from
 params.py circle math only (no Stwo, no contract): hints[0] inverts y_q (the im of the
 EVEN FS member of q's conjugate pair); hints[k] inverts the layer-k line twiddle
 x_k = pi^(k-1)(query_x(2^k * even(q >> k))). Skips with exit 0 when the full fixtures
-are absent (they are committed by the production proving run task)."""
+are absent (they are committed by the production proving run task). An
+optional path argument checks another full-point fixture file instead
+(e.g. interop/fixtures/rust-proofs-demo.json); a missing explicit path is
+an error, never a skip."""
 import json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from params import P, G, cmul, cpow, PRODUCTION_POINT, derived
@@ -22,10 +25,14 @@ def bitrev(i, log):
 
 
 def main():
-    if not os.path.exists(FIX):
-        print("SKIP: interop/fixtures/rust-proofs-full.json absent "
-              "(regenerate: cd interop && cargo run --release --bin prove -- --point full)")
-        return
+    default_run = len(sys.argv) < 2
+    fix_path = FIX if default_run else sys.argv[1]
+    if not os.path.exists(fix_path):
+        if default_run:
+            print("SKIP: interop/fixtures/rust-proofs-full.json absent "
+                  "(regenerate: cd interop && cargo run --release --bin prove -- --point full)")
+            return
+        raise SystemExit(f"missing fixture file: {fix_path}")
     pt = PRODUCTION_POINT
     log_d = pt["log_trace"] + pt["log_blowup"]
     n_layers = log_d - 1
@@ -44,8 +51,10 @@ def main():
     def pim(x):
         return (2 * x * x - 1) % P
 
-    fx = json.load(open(FIX))
-    assert len(fx) == 3, "three production proofs"
+    fx = json.load(open(fix_path))
+    if default_run:
+        assert len(fx) == 3, "three production proofs"
+    assert len(fx) >= 1, "at least one proof"
     checked = 0
     for f in fx:
         for q, b in zip(f["queryIndices"], f["bundles"]):
