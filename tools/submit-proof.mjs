@@ -82,7 +82,7 @@ const parseArgs = (argv) => {
     if (!opts[k]) throw new Error(`missing --${k}\n${USAGE}`);
   }
   if (opts.pub === undefined) throw new Error(`missing --pub\n${USAGE}`);
-  if (!NETWORKS[opts.network]) {
+  if (!Object.hasOwn(NETWORKS, opts.network)) {
     throw new Error(`--network must be devnet or testnet\n${USAGE}`);
   }
   if (opts.contract.indexOf(".") < 1) {
@@ -118,6 +118,7 @@ async function confirmTx(baseUrl, txid, contractAddress, contractName, pubHashHe
     if (cr && cr.ok) {
       const j = await cr.json();
       if (j.okay && j.result && !j.result.startsWith("0x09")) { // 0x09 is (none)
+        console.log("warning: confirmation via map state, not txid; inclusion_blocks is unreliable if this pub was attested before");
         const info = await (await fetch(`${baseUrl}/v2/info`)).json();
         return { height: info.stacks_tip_height };
       }
