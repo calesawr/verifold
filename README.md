@@ -12,8 +12,13 @@ that every node re-executes.
 > capacity conjecture, which is unproven, 54.0 bits proven; docs/m2-soundness.md), produced by an independent Rust prover
 > built on StarkWare's open-source [Stwo](https://github.com/starkware-libs/stwo) library, is verified end
 > to end by the generated single Clarity contract on simnet at a measured 14.80% of a block's runtime
-> budget ([docs/m2-cost-exhibit.md](docs/m2-cost-exhibit.md)). No security claim is made before
-> independent expert review and a professional audit. See the litepapers for the honest detail.
+> budget ([docs/m2-cost-exhibit.md](docs/m2-cost-exhibit.md)).
+> Since 2026-07-12 the production verifier and a minimal attest wrapper are live on Stacks
+> testnet with five real proofs verified on-chain from the deployer address; txids, fees, and inclusion
+> numbers are in [docs/m3-testnet-receipts.md](docs/m3-testnet-receipts.md), and
+> [docs/testnet-walkthrough.md](docs/testnet-walkthrough.md) reproduces the flow with your own proof.
+> No security claim is made before independent expert review and a professional audit. See the
+> litepapers for the honest detail.
 
 ## Read first
 

@@ -239,6 +239,17 @@ committed tree), with the only explicit equality at the terminal.
   `log_size` (~linear in queries x layers), and (c) whether prover-hinted `t^{-1}` with a
   `t * t^{-1} == 1` check is the sanctioned mitigation for BOTH the 1/y circle twiddle and the 1/x line
   twiddles (all verifier-derived domain constants).
+
+  **Resolved 2026 M3a for part (a) only (measured on testnet, still open to expert
+  challenge):** the node's read only call-read executed the full production
+  driver/verify (call-read body 392,597 bytes, HTTP 200, okay true; probe tool
+  tools/callread-verify.mjs) against the deployed
+  ST3GWNV45EC10P42Y7M7RCK6VP6NS9W47GAZHH9F.verifold-flat-full-production and
+  returned Clarity true (result 0x03); the verbatim response and body size are
+  in docs/m3-testnet-receipts.md. Read only consumption is therefore admitted
+  at production size on the public node endpoint. On-chain consumption used
+  the public verifold-attest wrapper: five recorded transactions from the
+  deployer address, txids in the receipts. Parts (b) and (c) remain as stated.
 - **DRIVER-8. Wire format.** Confirm the target prover emits the DEEP-quotient column commitment as our
   `fri-roots[0]`, and that trace/composition decommitments are queried-positions-only (no conjugate
   trace openings) -- i.e. that our witness-sourced conjugate choice matches the wire format.

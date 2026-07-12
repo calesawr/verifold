@@ -12,9 +12,10 @@
 > now runs at production security settings: the pinned point carries about 100 bits under the standard,
 > unproven conjecture (54 proven bits; docs/m2-soundness.md), and checking one real proof costs about
 > 14.80% of a block's compute budget (docs/m2-cost-exhibit.md). This is an engineering prototype. It
-> shows the verifier is buildable and, at production strength, working. It is **not** audited and has
-> **not** been deployed to any public network. No security claim is made until independent experts
-> review the open questions and a professional audit is completed.
+> shows the verifier is buildable and, at production strength, working. It is **not** audited. It now
+> runs on the Stacks test network with five real proofs checked on-chain (docs/m3-testnet-receipts.md);
+> running on a test network is not a safety guarantee. No security claim is made until independent
+> experts review the open questions and a professional audit is completed.
 
 ---
 
@@ -207,9 +208,10 @@ deployment until independent expert review, raised settings, a professional audi
 **Current limitations.** This is an early prototype. The end-to-end check now works at production
 security settings, but the headline 100-bit soundness number rests on a standard conjecture that is not
 proven; the proven number is 54 bits (docs/m2-soundness.md). The code is not audited. The statement it
-proves, a Fibonacci sequence, is a demonstration example, not a real application. Testnet deployment has
-not happened yet. Whether the Hiro indexer correctly handles the verifier's slash-separated contract
-names is still an open question (docs/flatten.md). Cost figures are point-in-time under the current
+proves, a Fibonacci sequence, is a demonstration example, not a real application. The verifier now runs
+on the Stacks test network (docs/m3-testnet-receipts.md); it has not been put on the main network. The
+Hiro indexer correctly served the verifier's slash-separated contract names on testnet (recorded in
+docs/m3-testnet-receipts.md). Cost figures are point-in-time under the current
 Stacks cost rules.
 
 ---
@@ -237,7 +239,10 @@ Stacks cost rules.
 - **M2: production security settings in the combined single contract.** Done. The security settings
   are pinned with the arithmetic shown, the separate prover makes real proofs at those settings, and the
   combined contract checks them with measured, published costs.
-- **M3: testnet deployment, a consolidated specification, and expert review.**
+- **M3: testnet deployment, a consolidated specification, and expert review.** The deployment half is
+  done: the verifier and a small public recording contract run on the test network, with five real
+  proofs checked on-chain and the real fees measured (docs/m3-testnet-receipts.md). The consolidated
+  specification and the expert review round come next.
 - **M4: an independent audit, first external integration, and first mainnet proof.**
 
 ---
@@ -255,5 +260,5 @@ across the ecosystem, a later, community-led step rather than a precondition.
 
 *Draft for discussion. An end-to-end proof check works at production security settings, about 100 bits
 under a standard conjecture that is not proven (54 proven bits), with measured costs published. The code
-is unaudited and not deployed to any public network; no security claim is made pending independent expert
+is unaudited and runs on the test network only (docs/m3-testnet-receipts.md); no security claim is made pending independent expert
 review and audit. A more technical edition of this litepaper is available separately.*

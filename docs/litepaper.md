@@ -14,7 +14,8 @@
 > Johnson bound (docs/m2-soundness.md), and one verification by the generated single contract measures
 > 14.80% of a block's compute budget (docs/m2-cost-exhibit.md). This is an engineering spike. It
 > demonstrates the verifier is buildable and, at production parameters, working, with high self-tested
-> confidence. It is **not** audited and is **not** yet deployed to any public network. No "secure" claim
+> confidence. It is **not** audited. It is deployed to Stacks testnet with five real proofs verified on-chain
+> (docs/m3-testnet-receipts.md); testnet liveness is not a security result. No "secure" claim
 > is made until an independent expert reviews the open questions and a professional audit is completed.
 
 ---
@@ -229,8 +230,9 @@ bug bounty, and continuous review.
 parameters, but the headline 100-bit soundness figure rests on the standard, unproven capacity conjecture;
 the proven figure is 54 bits (docs/m2-soundness.md). The code is not audited. The statement proved, a
 Fibonacci trace, is a demonstration AIR chosen to exercise the machinery, not an application statement.
-Testnet deployment has not happened yet. Indexer-side handling of the verifier's `/` names by the Hiro
-stacks-blockchain-api remains unverified (docs/flatten.md). The §5 cost figures are point-in-time under
+The verifier is deployed to Stacks testnet (docs/m3-testnet-receipts.md); mainnet deployment has not
+happened. The Hiro stacks-blockchain-api served the verifier's `/` names on testnet (observation
+recorded in docs/m3-testnet-receipts.md). The §5 cost figures are point-in-time under
 the current cost model. There is no production precedent for a STARK verifier in Clarity; maturity is
 emerging.
 
@@ -258,7 +260,11 @@ emerging.
   pinned with itemized soundness accounting (docs/m2-soundness.md), an independent Rust prover emits real
   proofs at that point, and the generated single contract verifies them on simnet with measured, receipted
   costs (docs/m2-cost-exhibit.md).
-- **M3: testnet deployment, consolidated specification, and expert review.**
+- **M3: testnet deployment, consolidated specification, and expert review.** Testnet half done
+  2026-07-12: the production verifier and a minimal attest contract are live on Stacks testnet with
+  five real proofs verified on-chain from the deployer address and measured fees
+  (docs/m3-testnet-receipts.md, docs/testnet-walkthrough.md). The consolidated specification and the
+  expert review packet are M3b, next.
 - **M4: independent audit, first external integration, and first mainnet proof.**
 
 Open questions for review (the full self-contained list is in the repo's expert-review document): the
@@ -299,6 +305,6 @@ this verifier is checked against.
 
 *Draft for discussion. An end-to-end proof check works at production security parameters, about 100 bits
 under the standard, unproven capacity conjecture (54 proven; docs/m2-soundness.md), with measured costs
-published (docs/m2-cost-exhibit.md). Unaudited and not deployed to any public network; no "secure" claim is
+published (docs/m2-cost-exhibit.md). Unaudited; deployed to Stacks testnet only (docs/m3-testnet-receipts.md); no "secure" claim is
 made pending independent expert review and audit. Cost figures are point-in-time under the current Stacks
 cost model.*
