@@ -685,6 +685,12 @@ def emit_vector_query_bundle():
         f"(sibs: {len(b['lineSibs'][-1]['sibs'])} hashes)",
         f"hints ({len(b['hints'])})          = {b['hints']}",
         "```",
+        "",
+        "Hint wire order: element 0 is the inverse of the circle fold "
+        "twiddle (the y coordinate of the even member of the query's "
+        "conjugate pair) and element k for k from 1 to 15 is the inverse "
+        "of the layer k line twiddle; this vector pins the order by "
+        "example.",
     ]
     return "\n".join(lines)
 

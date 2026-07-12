@@ -660,6 +660,8 @@ lineSibs[0].sib     = [1728434154, 1953755915, 2014451174, 326500548]   (sibs: 1
 lineSibs[14].sib    = [825958189, 1407444347, 1462484721, 60710846]   (sibs: 1 hashes)
 hints (16)          = [2070183614, 677572436, 1339776962, 93907568, 1271568892, 295200567, 2069024099, 2057105997, 509692480, 1014024865, 625947716, 1186332607, 448375059, 1859156789, 490549293, 775648038]
 ```
+
+Hint wire order: element 0 is the inverse of the circle fold twiddle (the y coordinate of the even member of the query's conjugate pair) and element k for k from 1 to 15 is the inverse of the layer k line twiddle; this vector pins the order by example.
 <!-- END-GENERATED: vector-query-bundle -->
 
 <!-- BEGIN-GENERATED: vector-final -->
