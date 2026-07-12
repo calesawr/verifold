@@ -131,6 +131,7 @@ jobs:
       - run: python3 tools/test_flatten.py
       - run: python3 tools/test_flatten_check.py
       - run: python3 tools/test_hints.py
+      - run: python3 tools/test_spec_vectors.py
       - run: python3 tools/test_check_cost_gate.py
       - run: python3 tools/test_proof_size.py
       - run: python3 tools/test_gen_spec_tables.py

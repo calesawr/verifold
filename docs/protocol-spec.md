@@ -611,26 +611,83 @@ The rows live in a hand maintained list inside tools/gen_spec_tables.py, and the
 
 The vectors below are extracted from the committed production fixtures and let an independent implementation check itself end to end against the live verifier's own accepted proof.
 
+> Appendix A holds the pinned test vectors for the empty-pub production proof. Every value below is generated from the committed fixtures by tools/gen_spec_tables.py, and tools/test_spec_vectors.py re-parses this document and re-checks every value against the fixtures directly, so the appendix cannot drift from the proofs it describes. An independent implementation should reproduce, in order: the ctx bytes, the challenge chain, the bundle checks for the worked query, and the final value; matching all four is the acceptance bar this specification sets. (source: tools/kats-full.json and interop/fixtures/rust-proofs-full.json, the committed production fixtures)
+
 <!-- BEGIN-GENERATED: vector-ctx -->
-Generated content for this block arrives in Task 5 of the M3b plan; the fence is already owned by tools/gen_spec_tables.py and the CI drift gate.
+Source: tools/kats-full.json (ctx, pub); the PARAMS slice is cross-checked against tools/params.py derived(PRODUCTION_POINT) and the sha256 slice is recomputed from pub at generation time.
+
+```
+ctx (55 bytes) = 76657269666f6c642d66732d763102171010080000000be3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
+
+| offset | length | bytes (hex) | meaning |
+| --- | --- | --- | --- |
+| 0 | 14 | 76657269666f6c642d66732d7631 | DOMAIN_LABEL, ascii 'verifold-fs-v1' |
+| 14 | 1 | 02 | VERSION, wire v2 |
+| 15 | 8 | 171010080000000b | PARAMS: n_queries 23, n_layers 16, blowup 16, pow_bits 8, air_id 11 (4 byte big endian) |
+| 23 | 32 | e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 | sha256(pub), pub = empty |
 <!-- END-GENERATED: vector-ctx -->
 
 <!-- BEGIN-GENERATED: vector-challenges -->
-Generated content for this block arrives in Task 5 of the M3b plan; the fence is already owned by tools/gen_spec_tables.py and the CI drift gate.
+Source: tools/kats-full.json (the production KAT export for the empty-pub proof). QM31 values are the four M31 limbs [c0, c1, c2, c3].
+
+```
+alpha        = [928048860, 2067221984, 1271999936, 726161750]
+zfelt        = [675389843, 1729761862, 1235296210, 364673981]
+gamma        = [244096230, 2120576295, 95932824, 401370035]
+betas[0]     = [333114197, 21046736, 542159198, 960366263]
+betas[15]    = [1634492610, 1274424261, 204362911, 992239846]
+(betas count = 16, one per layer)
+nonce        = 00000000000000bb (8 bytes)
+queryIndices = [87052, 70246, 10410, 2908, 33123, 124508, 44054, 23295, 102630, 1893, 95648, 80431, 43873, 94558, 25192, 17821, 905, 39815, 26421, 57841, 12724, 61472, 101719]
+(queryIndices count = 23)
+```
 <!-- END-GENERATED: vector-challenges -->
 
 <!-- BEGIN-GENERATED: vector-query-bundle -->
-Generated content for this block arrives in Task 5 of the M3b plan; the fence is already owned by tools/gen_spec_tables.py and the CI drift gate.
+Source: interop/fixtures/rust-proofs-full.json, fixture 0 (pub empty), bundle 0: the committed Rust proof the deployed contract verifies. Field names are the bundle tuple keys of driver/verify (Section 7).
+
+```
+queryIndex          = 87052
+tX                  = [1502965792, 0, 0, 0]
+tSibs               = 17 hashes; tSibs[0] = bfb4a383268b54e622b824c2e601115aedd0faec410c75c98372228b16cf265f, tSibs[16] = 890e5b9f18dec1152753d9cf3dbcab7fc2faa7183fe4fe5869578a90d3d31ca0
+cX                  = [1887669798, 1563218110, 1869537539, 1760826465]
+cSibs               = 17 hashes
+p0Sib               = [1935005100, 930541988, 801283501, 1297914828]
+p0Sibs              = 16 hashes
+lineSibs            = 15 entries; entry k carries sib (one QM31) and sibs (15 down to 1 hashes)
+lineSibs[0].sib     = [1728434154, 1953755915, 2014451174, 326500548]   (sibs: 15 hashes)
+lineSibs[14].sib    = [825958189, 1407444347, 1462484721, 60710846]   (sibs: 1 hashes)
+hints (16)          = [2070183614, 677572436, 1339776962, 93907568, 1271568892, 295200567, 2069024099, 2057105997, 509692480, 1014024865, 625947716, 1186332607, 448375059, 1859156789, 490549293, 775648038]
+```
 <!-- END-GENERATED: vector-query-bundle -->
 
 <!-- BEGIN-GENERATED: vector-final -->
-Generated content for this block arrives in Task 5 of the M3b plan; the fence is already owned by tools/gen_spec_tables.py and the CI drift gate.
+Source: tools/kats-full.json (final), cross-checked against interop/fixtures/rust-proofs-full.json fixture 0 at generation time; the txid is parsed from docs/m3-testnet-receipts.md.
+
+```
+final = [1651916378, 667405047, 777485795, 121421692]
+```
+
+Acceptance statement: a verifier that reproduces this final value for the empty-pub fixture accepts the same proof the deployed contract accepted on Stacks testnet; the on-chain acceptance is recorded as attestation transaction 0x70ff5ae9ac822049caf81ec294d9fb00d281bdb35013da47a87901d04142b512 (docs/m3-testnet-receipts.md, Attest 1 of 5, pub empty). This is a liveness and agreement statement, not a security claim.
 <!-- END-GENERATED: vector-final -->
 
 ## Appendix B: wire v1 (historical)
 
 Wire v1 was the toy format used before the production wire. It is recorded here for history only; nothing in it is current, and an implementer building against this specification must ignore it.
 
+> Appendix B records wire v1 for the historical record only. The normative wire format for this specification is v2 throughout (Sections 2 to 7); nothing below is current. (source: contracts/verifold-flat.clar and docs/flatten.md)
+
 <!-- BEGIN-GENERATED: wire-v1-appendix -->
-Generated content for this block arrives in Task 5 of the M3b plan; the fence is already owned by tools/gen_spec_tables.py and the CI drift gate.
+Source: contracts/verifold-flat.clar (the committed toy artifact, wire v1) and tools/params.py derived(TOY_POINT); the PARAMS bytes are cross-asserted between the two at generation time.
+
+Wire v1 is the toy format, VERSION byte 0x01, air_id 10. It is HISTORICAL: nothing in it describes the deployed production verifier, which speaks wire v2 only (VERSION byte 0x02).
+
+```
+toy PARAMS = 040302080000000a (n_queries 4, n_layers 3, blowup 2, pow_bits 8, air_id 10)
+tree depths: trace 4, composition 4, first layer 3, inner line layers 2, 1
+domain: LOG_DOMAIN 4, DOMAIN_SIZE 16, TRACE_ROWS 8, N_LAYERS 3
+```
+
+History, in two sentences: wire v1 carried the M1 toy verifier (the 8 row circle Fibonacci at blowup 2) whose flattening equivalence proof and measured costs are the M1 artifacts docs/flatten.md and docs/m1-cost-exhibit.md. Wire v2 superseded it at M2 by adding the prover supplied inverse hints and the production parameter point; v1 survives only as this appendix and the committed toy artifact.
 <!-- END-GENERATED: wire-v1-appendix -->

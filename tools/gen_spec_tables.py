@@ -12,6 +12,8 @@ inlines no protocol value. Deterministic: no timestamps, no env reads.
 Run:   python3 tools/gen_spec_tables.py     (regenerates the spec in place)
 Tests: python3 tools/test_gen_spec_tables.py
 """
+import hashlib
+import json
 import os
 import re
 import sys
@@ -566,13 +568,204 @@ EMITTERS = {
     "deviations-register": emit_deviations_register,
 }
 
-PENDING = {
-    "vector-ctx": "Task 5",
-    "vector-challenges": "Task 5",
-    "vector-query-bundle": "Task 5",
-    "vector-final": "Task 5",
-    "wire-v1-appendix": "Task 5",
-}
+PENDING = {}
+
+
+# ---------------- Task 5: appendix vector emitters ----------------
+# Every value below is READ from a committed source at generation time:
+# tools/kats-full.json, interop/fixtures/rust-proofs-full.json,
+# docs/m3-testnet-receipts.md, contracts/verifold-flat.clar, tools/params.py.
+# Nothing numeric is inlined here.
+
+_KATS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "kats-full.json")
+_FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "..", "interop", "fixtures", "rust-proofs-full.json")
+_RECEIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "..", "docs", "m3-testnet-receipts.md")
+_TOY_FLAT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "..", "contracts", "verifold-flat.clar")
+
+
+def _attest1_txid():
+    """The live txid for the empty-pub attestation, parsed from the receipts
+    (docs/m3-testnet-receipts.md, 'Attest 1 of 5'), never inlined."""
+    txt = open(_RECEIPTS).read()
+    sect = txt.split("### Attest 1 of 5", 1)[1].split("### Attest 2 of 5", 1)[0]
+    m = re.search(r"- txid: (0x[0-9a-f]{64})", sect)
+    assert m, "attest 1 txid not found in docs/m3-testnet-receipts.md"
+    return m.group(1)
+
+
+def emit_vector_ctx():
+    from params import PRODUCTION_POINT, derived
+    kats = json.load(open(_KATS))
+    ctx = bytes.fromhex(kats["ctx"])
+    pub = bytes.fromhex(kats["pub"])
+    label, version = ctx[:14], ctx[14:15]
+    params_bytes, pub_hash = ctx[15:23], ctx[23:]
+    dv = derived(PRODUCTION_POINT)
+    assert params_bytes == dv["PARAMS"], "ctx PARAMS disagree with params.py"
+    assert pub_hash == hashlib.sha256(pub).digest(), "ctx pub hash disagrees"
+    assert version == b"\x02", "wire v2 version byte"
+    lines = [
+        "Source: tools/kats-full.json (ctx, pub); the PARAMS slice is "
+        "cross-checked against tools/params.py derived(PRODUCTION_POINT) "
+        "and the sha256 slice is recomputed from pub at generation time.",
+        "",
+        "```",
+        f"ctx ({len(ctx)} bytes) = {ctx.hex()}",
+        "```",
+        "",
+        "| offset | length | bytes (hex) | meaning |",
+        "| --- | --- | --- | --- |",
+        f"| 0 | 14 | {label.hex()} | DOMAIN_LABEL, ascii "
+        f"{label.decode('ascii')!r} |",
+        f"| 14 | 1 | {version.hex()} | VERSION, wire v2 |",
+        f"| 15 | 8 | {params_bytes.hex()} | PARAMS: n_queries "
+        f"{params_bytes[0]}, n_layers {params_bytes[1]}, blowup "
+        f"{params_bytes[2]}, pow_bits {params_bytes[3]}, air_id "
+        f"{int.from_bytes(params_bytes[4:], 'big')} (4 byte big endian) |",
+        f"| 23 | 32 | {pub_hash.hex()} | sha256(pub), pub = "
+        f"{pub.hex() or 'empty'} |",
+    ]
+    return "\n".join(lines)
+
+
+def emit_vector_challenges():
+    kats = json.load(open(_KATS))
+    n = len(kats["betas"])
+    lines = [
+        "Source: tools/kats-full.json (the production KAT export for the "
+        "empty-pub proof). QM31 values are the four M31 limbs "
+        "[c0, c1, c2, c3].",
+        "",
+        "```",
+        f"alpha        = {kats['alpha']}",
+        f"zfelt        = {kats['zfelt']}",
+        f"gamma        = {kats['gamma']}",
+        f"betas[0]     = {kats['betas'][0]}",
+        f"betas[{n - 1}]    = {kats['betas'][-1]}",
+        f"(betas count = {n}, one per layer)",
+        f"nonce        = {kats['nonce']} (8 bytes)",
+        f"queryIndices = {kats['queryIndices']}",
+        f"(queryIndices count = {len(kats['queryIndices'])})",
+        "```",
+    ]
+    return "\n".join(lines)
+
+
+def emit_vector_query_bundle():
+    fx = json.load(open(_FIXTURES))[0]
+    b = fx["bundles"][0]
+    q = fx["queryIndices"][0]
+    n_line = len(b["lineSibs"])
+    lines = [
+        "Source: interop/fixtures/rust-proofs-full.json, fixture 0 "
+        "(pub empty), bundle 0: the committed Rust proof the deployed "
+        "contract verifies. Field names are the bundle tuple keys of "
+        "driver/verify (Section 7).",
+        "",
+        "```",
+        f"queryIndex          = {q}",
+        f"tX                  = {b['tX']}",
+        f"tSibs               = {len(b['tSibs'])} hashes; "
+        f"tSibs[0] = {b['tSibs'][0]}, "
+        f"tSibs[{len(b['tSibs']) - 1}] = {b['tSibs'][-1]}",
+        f"cX                  = {b['cX']}",
+        f"cSibs               = {len(b['cSibs'])} hashes",
+        f"p0Sib               = {b['p0Sib']}",
+        f"p0Sibs              = {len(b['p0Sibs'])} hashes",
+        f"lineSibs            = {n_line} entries; entry k carries sib "
+        f"(one QM31) and sibs ({len(b['lineSibs'][0]['sibs'])} down to "
+        f"{len(b['lineSibs'][-1]['sibs'])} hashes)",
+        f"lineSibs[0].sib     = {b['lineSibs'][0]['sib']}   "
+        f"(sibs: {len(b['lineSibs'][0]['sibs'])} hashes)",
+        f"lineSibs[{n_line - 1}].sib    = {b['lineSibs'][-1]['sib']}   "
+        f"(sibs: {len(b['lineSibs'][-1]['sibs'])} hashes)",
+        f"hints ({len(b['hints'])})          = {b['hints']}",
+        "```",
+    ]
+    return "\n".join(lines)
+
+
+def emit_vector_final():
+    kats = json.load(open(_KATS))
+    fx0 = json.load(open(_FIXTURES))[0]
+    assert kats["final"] == fx0["final"], "KAT and fixture final disagree"
+    txid = _attest1_txid()
+    lines = [
+        "Source: tools/kats-full.json (final), cross-checked against "
+        "interop/fixtures/rust-proofs-full.json fixture 0 at generation "
+        "time; the txid is parsed from docs/m3-testnet-receipts.md.",
+        "",
+        "```",
+        f"final = {kats['final']}",
+        "```",
+        "",
+        "Acceptance statement: a verifier that reproduces this final value "
+        "for the empty-pub fixture accepts the same proof the deployed "
+        "contract accepted on Stacks testnet; the on-chain acceptance is "
+        f"recorded as attestation transaction {txid} "
+        "(docs/m3-testnet-receipts.md, Attest 1 of 5, pub empty). This is "
+        "a liveness and agreement statement, not a security claim.",
+    ]
+    return "\n".join(lines)
+
+
+def emit_wire_v1_appendix():
+    from params import TOY_POINT, derived
+    dv = derived(TOY_POINT)
+    src = open(_TOY_FLAT).read()
+    m = re.search(r"\(define-constant driver/PARAMS 0x([0-9a-f]+)\)", src)
+    assert m, "toy PARAMS constant not found in contracts/verifold-flat.clar"
+    toy_params = m.group(1)
+    assert toy_params == dv["PARAMS"].hex(), \
+        "toy contract PARAMS disagrees with params.py"
+    mv = re.search(r"\(define-constant driver/VERSION 0x([0-9a-f]+)\)", src)
+    assert mv and mv.group(1) == "01", "toy VERSION byte is wire v1"
+    log_domain, n_layers = dv["LOG_DOMAIN"], dv["N_LAYERS"]
+    line_depths = ", ".join(str(log_domain - 1 - k)
+                            for k in range(1, n_layers))
+    lines = [
+        "Source: contracts/verifold-flat.clar (the committed toy artifact, "
+        "wire v1) and tools/params.py derived(TOY_POINT); the PARAMS bytes "
+        "are cross-asserted between the two at generation time.",
+        "",
+        f"Wire v1 is the toy format, VERSION byte 0x{mv.group(1)}, air_id "
+        f"{TOY_POINT['air_id']}. It is HISTORICAL: nothing in it describes "
+        "the deployed production verifier, which speaks wire v2 only "
+        "(VERSION byte 0x02).",
+        "",
+        "```",
+        f"toy PARAMS = {toy_params} (n_queries {dv['PARAMS'][0]}, n_layers "
+        f"{dv['PARAMS'][1]}, blowup {dv['PARAMS'][2]}, pow_bits "
+        f"{dv['PARAMS'][3]}, air_id "
+        f"{int.from_bytes(dv['PARAMS'][4:], 'big')})",
+        f"tree depths: trace {log_domain}, composition {log_domain}, "
+        f"first layer {log_domain - 1}, inner line layers {line_depths}",
+        f"domain: LOG_DOMAIN {log_domain}, DOMAIN_SIZE {dv['DOMAIN_SIZE']}, "
+        f"TRACE_ROWS {dv['TRACE_ROWS']}, N_LAYERS {n_layers}",
+        "```",
+        "",
+        "History, in two sentences: wire v1 carried the M1 toy verifier "
+        "(the 8 row circle Fibonacci at blowup 2) whose flattening "
+        "equivalence proof and measured costs are the M1 artifacts "
+        "docs/flatten.md and docs/m1-cost-exhibit.md. Wire v2 superseded "
+        "it at M2 by adding the prover supplied inverse hints and the "
+        "production parameter point; v1 survives only as this appendix "
+        "and the committed toy artifact.",
+    ]
+    return "\n".join(lines)
+
+
+EMITTERS.update({
+    "vector-ctx": emit_vector_ctx,
+    "vector-challenges": emit_vector_challenges,
+    "vector-query-bundle": emit_vector_query_bundle,
+    "vector-final": emit_vector_final,
+    "wire-v1-appendix": emit_wire_v1_appendix,
+})
 
 
 def render(block_id):

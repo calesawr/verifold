@@ -267,6 +267,36 @@ def test_conjectured_figure_never_travels_alone():
     check(g.read_text(g.SPEC))
 
 
+def test_vector_blocks_read_their_sources():
+    import json, os
+    import gen_spec_tables as g
+    from params import TOY_POINT, derived
+    here = os.path.dirname(os.path.abspath(__file__))
+    kats = json.load(open(os.path.join(here, "kats-full.json")))
+    fx0 = json.load(open(os.path.join(
+        here, "..", "interop", "fixtures", "rust-proofs-full.json")))[0]
+    assert kats["ctx"] in g.EMITTERS["vector-ctx"]()
+    ch = g.EMITTERS["vector-challenges"]()
+    assert str(kats["alpha"]) in ch
+    assert kats["nonce"] in ch
+    qb = g.EMITTERS["vector-query-bundle"]()
+    assert str(fx0["queryIndices"][0]) in qb
+    assert str(fx0["bundles"][0]["hints"]) in qb
+    fb = g.EMITTERS["vector-final"]()
+    assert str(kats["final"]) in fb
+    assert "0x" in fb
+    wa = g.EMITTERS["wire-v1-appendix"]()
+    assert derived(TOY_POINT)["PARAMS"].hex() in wa
+    assert "HISTORICAL" in wa
+
+
+def test_vector_blocks_deterministic():
+    import gen_spec_tables as g
+    for bid in ("vector-ctx", "vector-challenges", "vector-query-bundle",
+                "vector-final", "wire-v1-appendix"):
+        assert g.EMITTERS[bid]() == g.EMITTERS[bid](), bid
+
+
 TESTS = [
     test_begin_without_end_fails,
     test_end_without_begin_fails,
@@ -292,6 +322,8 @@ TESTS = [
     test_soundness_accounting_reproduces_bits_output,
     test_deviations_register_rows_anchored_and_mnemonic_excluded,
     test_conjectured_figure_never_travels_alone,
+    test_vector_blocks_read_their_sources,
+    test_vector_blocks_deterministic,
 ]
 
 if __name__ == "__main__":
